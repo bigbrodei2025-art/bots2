@@ -19,13 +19,14 @@ async function startBot() {
     if (connection === 'close') {
       const shouldReconnect =
         lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log('Conexão fechada. Reconectando:', shouldReconnect);
+      console.log('❌ Conexão fechada. Reconectando:', shouldReconnect);
       if (shouldReconnect) startBot();
     } else if (connection === 'open') {
       console.log('✅ Bot conectado!');
     }
   });
 
+  // 👉 QR code pequeno no terminal
   sock.ev.on('qr', (qr) => {
     qrcode.generate(qr, { small: true, margin: 1, ecLevel: 'L' });
     console.log('📲 Escaneie o QR Code para conectar!');
@@ -41,8 +42,9 @@ async function startBot() {
 
       fs.appendFileSync('mensagens.log', `${new Date().toISOString()} - ${sender}: ${message}\n`);
 
+      const botName = process.env.BOT_NAME || 'Bot';
+
       if (message?.toLowerCase() === 'oi') {
-        const botName = process.env.BOT_NAME || 'Bot';
         const resposta = process.env.RESP_OLA?.replace('$BOT_NAME', botName)
           || `Olá! 👋 Eu sou um bot legal, ${botName}.`;
         await sock.sendMessage(sender, { text: resposta });
@@ -63,9 +65,14 @@ async function startBot() {
       }
 
       if (message?.startsWith('/clima')) {
-        const cidade = message.split(' ')[1] || 'São Paulo';
-        const resposta = await axios.get(`https://wttr.in/${cidade}?format=3`);
-        await sock.sendMessage(sender, { text: `🌤️ ${resposta.data}` });
+        const partes = message.split(' ');
+        const cidade = partes.slice(1).join(' ') || 'São Paulo';
+        try {
+          const resposta = await axios.get(`https://wttr.in/${cidade}?format=3`);
+          await sock.sendMessage(sender, { text: `🌤️ ${resposta.data}` });
+        } catch (err) {
+          await sock.sendMessage(sender, { text: '❌ Não consegui buscar o clima. Verifique a cidade.' });
+        }
         return;
       }
 
