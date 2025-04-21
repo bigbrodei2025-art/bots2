@@ -1,4 +1,21 @@
+# Ignorar a pasta node_modules
 node_modules/
+
+# Ignorar arquivos de logs
+*.log
+
+# Ignorar arquivos de configuração do ambiente (caso não queira compartilhar o .env)
 .env
-session/
-mensagens.log
+
+# Ignorar arquivos temporários
+*.tmp
+*.bak
+*.swp
+
+# Ignorar pacotes do NPM
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Ignorar arquivos de cache do npm
+npm-cache/
