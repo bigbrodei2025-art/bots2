@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 module.exports = {
-  PREFIX: "!"
+  PREFIX: process.env.PREFIX || "!",
 };
