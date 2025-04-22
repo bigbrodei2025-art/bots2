@@ -1,16 +1,13 @@
 {
-  "name": "whatsapp-bot",
+  "name": "whatsapp-bot-minimal",
   "version": "1.0.0",
-  "description": "Bot de WhatsApp usando Baileys",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "author": "Seu Nome",
-  "license": "MIT",
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.6.0",
-    "dotenv": "^16.0.3",
+    "@whiskeysockets/baileys": "^6.5.0",
+    "pino": "^8.0.0",
     "qrcode-terminal": "^0.12.0"
   }
 }
