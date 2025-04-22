@@ -4,10 +4,11 @@ const {
   DisconnectReason,
   fetchLatestBaileysVersion,
 } = require("@whiskeysockets/baileys");
+
 const P = require("pino");
-const qrcode = require("qrcode-terminal");
 const fs = require("fs");
 const path = require("path");
+const qrcode = require("qrcode-terminal");
 
 const config = require("./config");
 
@@ -31,12 +32,12 @@ async function startBot() {
     if (connection === "close") {
       const shouldReconnect =
         lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log("Conexão fechada, reconectando:", shouldReconnect);
+      console.log("Conexão encerrada. Reconectar?", shouldReconnect);
       if (shouldReconnect) {
         startBot();
       }
     } else if (connection === "open") {
-      console.log("✅ Bot conectado!");
+      console.log("✅ Bot conectado ao WhatsApp!");
     }
   });
 
