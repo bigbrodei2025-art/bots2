@@ -8,10 +8,9 @@
   },
   "dependencies": {
     "@adiwajshing/baileys": "^5.0.0",
-    "@whiskeysockets/baileys": "^6.17.16",
+    "@whiskeysockets/baileys": "^6.7.16",
     "csv-parser": "^3.2.0",
     "dotenv": "^16.3.1",
-    "fs": "^0.0.1-security",
     "path": "^0.12.7",
     "pino": "^8.21.0",
     "qrcode-terminal": "^0.12.0",
