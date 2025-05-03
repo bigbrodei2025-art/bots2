@@ -10,7 +10,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.16",
+    "@whiskeysockets/baileys": "^6.17.16",
     "csv-parser": "^3.2.0",
     "dotenv": "^16.3.1",
     "pino": "^8.21.0",
