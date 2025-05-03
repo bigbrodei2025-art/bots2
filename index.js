@@ -48,7 +48,7 @@ async function startBot() {
     // Início do processo
     if (msg.startsWith(`${PREFIX}enviar`)) {
       estadoEnvio[sender] = { etapa: "numero" };
-      await sock.sendMessage(sender, { text: "📲 Informe o número do cliente (ex: 5511999999999) ou envie o CSV." });
+      await sock.sendMessage(sender, { text: "📲 Informe o número do cliente por favor! (ex: 5511999999999) ou envie o CSV." });
       return;
     }
 
