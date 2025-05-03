@@ -45,6 +45,12 @@ async function startBot() {
     const sender = m.key.remoteJid;
     const msg = m.message.conversation || m.message.extendedTextMessage?.text || "";
 
+    // Resposta automática para "oi"
+    if (msg.toLowerCase().includes("oi")) {
+      await sock.sendMessage(sender, { text: "Olá, estou ativo!" });
+      return;
+    }
+
     // Início do processo
     if (msg.startsWith(`${PREFIX}enviar`)) {
       estadoEnvio[sender] = { etapa: "numero" };
