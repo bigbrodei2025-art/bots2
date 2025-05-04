@@ -2,66 +2,36 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Painel do Bot WhatsApp</title>
+  <title>Painel WhatsApp Bot</title>
 </head>
 <body>
-  <h1>Painel do Bot WhatsApp (Railway)</h1>
+  <h2>Envio de Mensagens via WhatsApp</h2>
   <form id="form">
-    <label>Números (separados por vírgula):</label><br/>
-    <input type="text" id="numeros" required><br/><br/>
-
-    <label>Mensagem:</label><br/>
-    <textarea id="mensagem" required></textarea><br/><br/>
-
-    <label>Mídia (opcional):</label><br/>
-    <input type="file" id="midia"><br/><br/>
-
+    <label for="numero">Número (com DDI):</label><br>
+    <input type="text" id="numero" placeholder="Ex: 5511999999999" required><br><br>
+    <label for="mensagem">Mensagem:</label><br>
+    <textarea id="mensagem" rows="4" required></textarea><br><br>
     <button type="submit">Enviar</button>
   </form>
 
   <p id="status"></p>
 
   <script>
-    document.getElementById("form").addEventListener("submit", async (e) => {
+    document.getElementById("form").addEventListener("submit", async function (e) {
       e.preventDefault();
+      const numero = document.getElementById("numero").value.trim();
+      const mensagem = document.getElementById("mensagem").value.trim();
 
-      const numeros = document.getElementById("numeros").value
-        .split(",")
-        .map(n => n.trim().replace(/\D/g, ""));
-      const mensagem = document.getElementById("mensagem").value;
-      const midiaInput = document.getElementById("midia");
+      const resposta = await fetch("/enviar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ numero, mensagem })
+      });
 
-      let midiaBase64 = null;
-      let tipo = "text";
-
-      if (midiaInput.files.length > 0) {
-        const file = midiaInput.files[0];
-        tipo = file.type.startsWith("image")
-          ? "image"
-          : file.type.startsWith("video")
-          ? "video"
-          : "document";
-
-        const reader = new FileReader();
-        reader.onload = async function () {
-          midiaBase64 = reader.result.split(",")[1];
-          await enviar();
-        };
-        reader.readAsDataURL(file);
-      } else {
-        await enviar();
-      }
-
-      async function enviar() {
-        const res = await fetch("https://bot-production-cfcd.up.railway.app/enviar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ numeros, mensagem, midiaBase64, tipo }),
-        });
-
-        const data = await res.json();
-        document.getElementById("status").innerText = data.msg || "Erro ao enviar";
-      }
+      const resultado = await resposta.json();
+      document.getElementById("status").innerText = resultado.msg || resultado.erro;
     });
   </script>
 </body>
