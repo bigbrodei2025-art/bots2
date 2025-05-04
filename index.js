@@ -51,6 +51,18 @@ async function startBot() {
       return;
     }
 
+    // Comando !ping
+    if (msg.startsWith("!ping")) {
+      const tempoAtual = new Date();
+      const status = await sock.getState();  // Obtém o estado atual da conexão (aberto, fechado, etc.)
+      const responseText = `🏓 PONG! 
+Status da conexão: ${status}
+Hora atual: ${tempoAtual.toLocaleString()}`;
+      
+      await sock.sendMessage(sender, { text: responseText });
+      return;
+    }
+
     // Início do processo
     if (msg.startsWith(`${PREFIX}enviar`)) {
       estadoEnvio[sender] = { etapa: "numero" };
