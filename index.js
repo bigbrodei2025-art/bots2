@@ -52,7 +52,7 @@
       }
 
       async function enviarDados() {
-        const res = await fetch("https://SEU-BOT-NO-RAILWAY.up.railway.app/enviar", {
+        const res = await fetch("bot-production-cfcd.up.railway.app/enviar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ numeros, mensagem, midiaBase64, tipo }),
