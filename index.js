@@ -1,147 +1,67 @@
-const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-  DisconnectReason,
-  downloadMediaMessage,
-} = require("@whiskeysockets/baileys");
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Painel do Bot WhatsApp</title>
+</head>
+<body>
+  <h1>Enviar mensagem pelo Painel</h1>
+  <form id="form">
+    <label>Números (separados por vírgula):</label><br/>
+    <input type="text" id="numeros" required><br/><br/>
 
-const P = require("pino");
-const fs = require("fs");
-const path = require("path");
+    <label>Mensagem:</label><br/>
+    <textarea id="mensagem" required></textarea><br/><br/>
 
-const { PREFIX } = require("./config");
+    <label>Mídia (opcional):</label><br/>
+    <input type="file" id="midia"><br/><br/>
 
-const estadoEnvio = {};
+    <button type="submit">Enviar</button>
+  </form>
 
-async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, "auth_info_baileys"));
-  const { version } = await fetchLatestBaileysVersion();
+  <p id="status"></p>
 
-  const sock = makeWASocket({
-    version,
-    logger: P({ level: "silent" }),
-    printQRInTerminal: true,
-    auth: state,
-  });
+  <script>
+    document.getElementById("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const numeros = document.getElementById("numeros").value
+        .split(",")
+        .map(n => n.trim().replace(/\D/g, ""));
+      const mensagem = document.getElementById("mensagem").value;
+      const midiaInput = document.getElementById("midia");
+      let midiaBase64 = null;
+      let tipo = "text";
 
-  sock.ev.on("creds.update", saveCreds);
+      if (midiaInput.files.length > 0) {
+        const file = midiaInput.files[0];
+        tipo = file.type.startsWith("image")
+          ? "image"
+          : file.type.startsWith("video")
+          ? "video"
+          : "document";
 
-  sock.ev.on("connection.update", ({ connection, lastDisconnect }) => {
-    if (connection === "open") console.log("✅ Bot conectado com sucesso!");
-    if (
-      connection === "close" &&
-      lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-    ) {
-      console.log("🔁 Reconectando...");
-      startBot();
-    }
-  });
+        const reader = new FileReader();
+        reader.onload = async function () {
+          midiaBase64 = reader.result.split(",")[1];
 
-  sock.ev.on("messages.upsert", async ({ messages }) => {
-    const m = messages[0];
-    if (!m.message || m.key.fromMe) return;
-
-    const sender = m.key.remoteJid;
-    const msg = m.message.conversation || m.message.extendedTextMessage?.text || "";
-
-    // Resposta automática para "oi"
-    if (msg.toLowerCase().includes("oi")) {
-      await sock.sendMessage(sender, { text: "Olá, estou ativo!" });
-      return;
-    }
-
-    // Início do processo
-    if (msg.startsWith(`${PREFIX}enviar`)) {
-      estadoEnvio[sender] = { etapa: "numero" };
-      await sock.sendMessage(sender, { text: "📲 Informe o número do cliente por favor! (ex: 5511999999999) ou envie o CSV." });
-      return;
-    }
-
-    // Processando etapas
-    if (estadoEnvio[sender]) {
-      const estado = estadoEnvio[sender];
-
-      if (m.message.documentMessage) {
-        const fileName = m.message.documentMessage.fileName || "contatos.csv";
-        const buffer = await downloadMediaMessage(m, "buffer", {}, { logger: P() });
-        const caminho = path.join(__dirname, "mensagens", fileName);
-        fs.writeFileSync(caminho, buffer);
-        estado.numeros = extrairNumerosDoCSV(caminho);
-        estado.etapa = "mensagem";
-        await sock.sendMessage(sender, { text: `📄 CSV com ${estado.numeros.length} números recebido. Agora envie a mensagem.` });
-        return;
-      }
-
-      if (estado.etapa === "numero") {
-        estado.numeros = [msg.replace(/\D/g, "")];
-        estado.etapa = "mensagem";
-        await sock.sendMessage(sender, { text: "✉️ Agora envie a mensagem de texto." });
-        return;
-      }
-
-      if (estado.etapa === "mensagem") {
-        estado.mensagem = msg;
-        estado.etapa = "midia";
-        await sock.sendMessage(sender, { text: "📎 Envie uma imagem/vídeo/documento ou escreva 'pular' para enviar sem mídia." });
-        return;
-      }
-
-      if (estado.etapa === "midia") {
-        if (msg.toLowerCase() === "pular") {
-          await enviarMensagens(sock, estado.numeros, estado.mensagem);
-        } else if (
-          m.message.imageMessage ||
-          m.message.videoMessage ||
-          m.message.documentMessage
-        ) {
-          const tipo =
-            m.message.imageMessage
-              ? "image"
-              : m.message.videoMessage
-              ? "video"
-              : "document";
-
-          const buffer = await downloadMediaMessage(m, "buffer", {}, { logger: P() });
-
-          await enviarMensagens(sock, estado.numeros, estado.mensagem, buffer, tipo);
-        }
-
-        delete estadoEnvio[sender];
-        return;
-      }
-    }
-  });
-}
-
-function extrairNumerosDoCSV(caminho) {
-  try {
-    const linhas = fs.readFileSync(caminho, "utf8").split("\n");
-    return linhas
-      .map((linha) => linha.trim().replace(/\D/g, ""))
-      .filter((numero) => numero.length >= 11);
-  } catch (e) {
-    console.error("Erro ao ler CSV:", e);
-    return [];
-  }
-}
-
-async function enviarMensagens(sock, numeros, mensagem, midia = null, tipo = "text") {
-  for (const numero of numeros) {
-    const jid = `${numero}@s.whatsapp.net`;
-
-    try {
-      if (midia) {
-        await sock.sendMessage(jid, { [tipo]: midia, caption: mensagem });
+          await enviarDados();
+        };
+        reader.readAsDataURL(file);
       } else {
-        await sock.sendMessage(jid, { text: mensagem });
+        await enviarDados();
       }
 
-      console.log(`✅ Mensagem enviada para ${numero}`);
-    } catch (e) {
-      console.error(`❌ Erro ao enviar para ${numero}:`, e.message);
-    }
-  }
-}
+      async function enviarDados() {
+        const res = await fetch("https://SEU-BOT-NO-RAILWAY.up.railway.app/enviar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ numeros, mensagem, midiaBase64, tipo }),
+        });
 
-startBot();
+        const data = await res.json();
+        document.getElementById("status").innerText = data.msg || "Erro";
+      }
+    });
+  </script>
+</body>
+</html>
