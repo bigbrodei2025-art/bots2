@@ -52,9 +52,11 @@ async function startBot() {
     }
 
     // Início do processo
-    if (msg.startsWith(${PREFIX}enviar)) {
+    if (msg.startsWith(`${PREFIX}enviar`)) {
       estadoEnvio[sender] = { etapa: "numero" };
-      await sock.sendMessage(sender, { text: "📲 Informe o número do cliente por favor! (ex: 5511999999999) ou envie o CSV." });
+      await sock.sendMessage(sender, {
+        text: "📲 Informe o número do cliente por favor! (ex: 5511999999999) ou envie o CSV.",
+      });
       return;
     }
 
@@ -62,6 +64,7 @@ async function startBot() {
     if (estadoEnvio[sender]) {
       const estado = estadoEnvio[sender];
 
+      // Caso receba um CSV
       if (m.message.documentMessage) {
         const fileName = m.message.documentMessage.fileName || "contatos.csv";
         const buffer = await downloadMediaMessage(m, "buffer", {}, { logger: P() });
@@ -69,10 +72,13 @@ async function startBot() {
         fs.writeFileSync(caminho, buffer);
         estado.numeros = extrairNumerosDoCSV(caminho);
         estado.etapa = "mensagem";
-        await sock.sendMessage(sender, { text: 📄 CSV com ${estado.numeros.length} números recebido. Agora envie a mensagem. });
+        await sock.sendMessage(sender, {
+          text: `📄 CSV com ${estado.numeros.length} números recebido. Agora envie a mensagem.`,
+        });
         return;
       }
 
+      // Número simples
       if (estado.etapa === "numero") {
         estado.numeros = [msg.replace(/\D/g, "")];
         estado.etapa = "mensagem";
@@ -80,13 +86,17 @@ async function startBot() {
         return;
       }
 
+      // Mensagem de texto
       if (estado.etapa === "mensagem") {
         estado.mensagem = msg;
         estado.etapa = "midia";
-        await sock.sendMessage(sender, { text: "📎 Envie uma imagem/vídeo/documento ou escreva 'pular' para enviar sem mídia." });
+        await sock.sendMessage(sender, {
+          text: "📎 Envie uma imagem/vídeo/documento ou escreva 'pular' para enviar sem mídia.",
+        });
         return;
       }
 
+      // Mídia ou "pular"
       if (estado.etapa === "midia") {
         if (msg.toLowerCase() === "pular") {
           await enviarMensagens(sock, estado.numeros, estado.mensagem);
@@ -95,12 +105,11 @@ async function startBot() {
           m.message.videoMessage ||
           m.message.documentMessage
         ) {
-          const tipo =
-            m.message.imageMessage
-              ? "image"
-              : m.message.videoMessage
-              ? "video"
-              : "document";
+          const tipo = m.message.imageMessage
+            ? "image"
+            : m.message.videoMessage
+            ? "video"
+            : "document";
 
           const buffer = await downloadMediaMessage(m, "buffer", {}, { logger: P() });
 
@@ -128,7 +137,7 @@ function extrairNumerosDoCSV(caminho) {
 
 async function enviarMensagens(sock, numeros, mensagem, midia = null, tipo = "text") {
   for (const numero of numeros) {
-    const jid = ${numero}@s.whatsapp.net;
+    const jid = `${numero}@s.whatsapp.net`;
 
     try {
       if (midia) {
@@ -137,9 +146,9 @@ async function enviarMensagens(sock, numeros, mensagem, midia = null, tipo = "te
         await sock.sendMessage(jid, { text: mensagem });
       }
 
-      console.log(✅ Mensagem enviada para ${numero});
+      console.log(`✅ Mensagem enviada para ${numero}`);
     } catch (e) {
-      console.error(❌ Erro ao enviar para ${numero}:, e.message);
+      console.error(`❌ Erro ao enviar para ${numero}:`, e.message);
     }
   }
 }
