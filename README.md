@@ -17,10 +17,7 @@ Bot simples para responder mensagens no WhatsApp usando a biblioteca Baileys.
     npm install
     ```
 
-3. Configure o arquivo `.env` com as variáveis necessárias:
-    ```env
-    OWNER_NUMBER=559999999999
-    PREFIX=!
+3. exclua a pasta auth_info_bailyes
     ```
 
 4. Rode o bot:
