@@ -9,6 +9,8 @@ const {
 const P = require("pino");
 const fs = require("fs");
 const path = require("path");
+const express = require('express'); // <-- ADICIONE ESTA LINHA
+const app = express();               // <-- ADICIONE ESTA LINHA
 
 const { PREFIX } = require("./config");
 
@@ -20,6 +22,28 @@ const {
 
 const estadoTarot = {};
 const estadoEnvio = {};
+
+// --- INÍCIO DO CÓDIGO PARA SERVIR O SITE HTML E MANTER A PORTA ATIVA NO RENDER ---
+const PORT = process.env.PORT || 3000; // O Render define a porta na variável de ambiente PORT
+
+// Configura o Express para servir arquivos estáticos da pasta 'public'.
+// Isso fará com que seu 'index.html' (se existir) seja acessível pela URL principal do Render.
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Opcional: Uma rota de "saúde" ou status para a URL principal, caso não haja um index.html
+// na pasta public, ou se você quiser uma mensagem de fallback.
+// Se você tem um index.html na pasta public, esta rota pode ser substituída por ele.
+app.get('/', (req, res) => {
+  res.send('<h1>Bot da Vovozinha: Ativo e Prontíssimo!</h1><p>Acesse o WhatsApp para interagir com o bot. Este é apenas um indicador de status.</p>');
+});
+
+// Inicia o servidor HTTP. É crucial que ele comece a "escutar" para o Render detectar a porta
+// e parar de exibir os avisos de "No open ports detected" / "Port scan timeout".
+app.listen(PORT, () => {
+  console.log(`Servidor HTTP iniciado na porta ${PORT}`);
+});
+// --- FIM DO CÓDIGO PARA SERVIR O SITE HTML ---
+
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(
@@ -493,7 +517,7 @@ async function startBot() {
       return;
     }
 
-    // --- Processamento do Estado de Envio de Mensagens em Massa (Se o bot não estiver em fluxo de Tarot) ---
+    // --- Processamento do Estado de Envio de Mensagens em Massa (Se o bot não estiver no fluxo de Tarot) ---
     if (estadoEnvio[sender]) {
       const estado = estadoEnvio[sender];
 
