@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Lojinha da Vovozinha 🔮</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom right, #f3e5f5, #ce93d8);
+      color: #4a148c;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    .msg {
+      font-size: 1em;
+      color: #880e4f;
+      margin-top: 15px;
+      max-width: 300px;
+    }
+
+    .destaque {
+      font-weight: bold;
+      color: #d81b60;
+    }
+  </style>
+
+  <script>
+    window.onload = function () {
+      const ua = navigator.userAgent.toLowerCase();
+      const emTikTok = ua.includes("tiktok");
+
+      if (!emTikTok) {
+        // Fora do TikTok: redireciona automaticamente para Shopee
+        window.location.href = "https://s.shopee.com.br/7Kl2YinFYB";
+      }
+      // Dentro do TikTok: mostra instrução apenas
+    };
+  </script>
+</head>
+<body>
+
+  <h1>Lojinha da Vovozinha 🔮</h1>
+
+  <p class="msg">
+    ⚠️ Para abrir a loja, toque nos<br>
+    <span class="destaque">três pontinhos (•••)</span> do TikTok<br>
+    e selecione <span class="destaque">“Abrir no navegador”</span>.<br><br>
+    Ao abrir no navegador, a loja vai carregar automaticamente!
+  </p>
+
+</body>
+</html>

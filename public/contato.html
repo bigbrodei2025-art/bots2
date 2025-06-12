@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contato - Vovózinha do Tarô</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="container">
+            <div class="logo">
+                <h1>Vovózinha do Tarô</h1>
+            </div>
+            <button class="hamburger-menu" aria-label="Abrir Menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html">Início</a></li>
+                    <li><a href="dicas.html">Dicas de Tarô</a></li>
+                    <li><a href="simpatias.html">Simpatias</a></li>
+                    <li><a href="contato.html">Contato</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container page-content">
+        <section class="contact-section">
+            <h2>Entre em Contato com a Vovózinha</h2>
+            <p>Se você tem alguma pergunta, sugestão ou gostaria de agendar uma consulta personalizada, sinta-se à vontade para entrar em contato. A Vovózinha está aqui para ajudar a iluminar seu caminho.</p>
+
+            <div class="contact-info">
+                <p><i class="fas fa-envelope"></i> E-mail: <a href="mailto:contato@vovozinhadotaro.com.br">contato@vovozinhadotaro.com.br</a></p>
+                <p><i class="fas fa-phone-alt"></i> Telefone: (XX) XXXX-XXXX (Opcional)</p>
+                <p><i class="fab fa-whatsapp"></i> WhatsApp: (XX) XXXXX-XXXX (Opcional)</p>
+                <p><i class="fas fa-map-marker-alt"></i> Endereço: Planeta Terra, Universo (Apenas simbólico para contato virtual)</p>
+            </div>
+
+            <!-- Formulário de Contato Simples (sem funcionalidade de envio, apenas layout) -->
+            <form class="contact-form">
+                <h3>Envie uma Mensagem</h3>
+                <div class="form-group">
+                    <label for="name">Seu Nome:</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Seu E-mail:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Assunto:</label>
+                    <input type="text" id="subject" name="subject">
+                </div>
+                <div class="form-group">
+                    <label for="message">Sua Mensagem:</label>
+                    <textarea id="message" name="message" rows="5" required></textarea>
+                </div>
+                <button type="submit" class="cta-button">Enviar Mensagem</button>
+            </form>
+            <p class="form-note"><em>*Este formulário é apenas um exemplo de layout. Para que ele funcione, você precisaria de um serviço de backend para receber as mensagens (como Formspree, Netlify Forms, ou um script próprio).</em></p>
+        </section>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <p>&copy; 2025 Vovózinha do Tarô. Todos os direitos reservados.</p>
+            <a href="SEU_LINK_DE_AFILIADO_SHOPEE" target="_blank" class="shopee-ad-link" aria-label="Acesse a Shopee e veja promoções">
+                <img src="https://placehold.co/120x60/ee6c4d/ffffff?text=Shopee+Ad" alt="Anúncio Shopee - Clique Aqui">
+                <span class="shopee-text">Promoções na Shopee!</span>
+            </a>
+        </div>
+    </footer>
+
+    <script src="js/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,850 @@
+<style>
+    /* Reset básico para consistência entre navegadores */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    /* Estilos Globais */
+    body {
+        font-family: 'Merriweather', serif; /* Fonte principal para o corpo */
+        line-height: 1.6;
+        color: #333;
+        /* Gradiente de fundo mais místico e profundo */
+        background: linear-gradient(135deg, #0d001a, #2a003f, #4b0082); /* Roxo muito escuro para roxo mais vibrante */
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow-x: hidden; /* Evita rolagem horizontal indesejada */
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Cinzel Decorative', cursive; /* Fonte decorativa para títulos */
+        color: #fce4a4; /* Dourado para títulos */
+        margin-bottom: 15px;
+        text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4); /* Sombra mais acentuada nos títulos */
+    }
+
+    h1 { font-size: 3.5em; }
+    h2 { font-size: 2.8em; }
+    h3 { font-size: 2.2em; }
+    h4 { font-size: 1.8em; }
+
+    p {
+        margin-bottom: 10px;
+        color: #e0c8b3; /* Cor de texto mais clara para contraste com o fundo escuro */
+    }
+
+    a {
+        color: #fce4a4; /* Dourado para links */
+        text-decoration: none;
+        transition: color 0.3s ease;
+    }
+
+    a:hover {
+        color: #e0c8b3; /* Tom de bege/marrom claro ao passar o mouse */
+    }
+
+    /* Botões */
+    .cta-button {
+        display: inline-block;
+        background: linear-gradient(to right, #8c005b, #9b2226); /* Gradiente vermelho/vinho */
+        color: #fff;
+        padding: 15px 35px;
+        border-radius: 10px;
+        text-transform: uppercase;
+        font-weight: bold;
+        transition: all 0.3s ease; /* Transição para todas as propriedades */
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
+        border: none;
+        cursor: pointer;
+        letter-spacing: 0.05em; /* Pequeno espaçamento entre letras */
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .cta-button:hover {
+        background: linear-gradient(to right, #5a2d82, #4b0082); /* Gradiente roxo */
+        transform: translateY(-5px); /* Efeito de elevação */
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .read-more {
+        display: inline-block;
+        margin-top: 18px;
+        color: #fce4a4;
+        font-weight: bold;
+        border-bottom: 2px solid #fce4a4;
+        transition: border-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+        padding-bottom: 2px;
+    }
+
+    .read-more:hover {
+        border-color: #e0c8b3;
+        color: #e0c8b3;
+        transform: translateX(5px);
+    }
+
+    /* Cabeçalho */
+    .main-header {
+        background: linear-gradient(to right, #1a002b, #2a003f); /* Gradiente de roxos escuros */
+        color: #fff;
+        padding: 25px 0;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); /* Sombra mais proeminente */
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        border-bottom-left-radius: 25px; /* Bordas arredondadas mais proeminentes */
+        border-bottom-right-radius: 25px;
+        border-bottom: 1px solid rgba(252, 228, 164, 0.3); /* Linha dourada sutil na parte inferior */
+    }
+
+    .main-header .container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .main-header h1 {
+        color: #fce4a4; /* Dourado para o título principal */
+        margin: 0;
+        font-size: 3.2em;
+        text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.6); /* Sombra mais forte */
+        letter-spacing: 0.08em;
+    }
+
+    .main-nav ul {
+        list-style: none;
+        display: flex;
+    }
+
+    .main-nav li {
+        margin-left: 45px;
+    }
+
+    .main-nav a {
+        color: #e0c8b3; /* Bege para os links do menu */
+        font-weight: bold;
+        font-size: 1.3em;
+        padding: 10px 0;
+        position: relative;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .main-nav a::after { /* Linha de destaque ao passar o mouse */
+        content: '';
+        position: absolute;
+        width: 0;
+        height: 5px; /* Linha mais grossa */
+        background-color: #fce4a4; /* Dourado vibrante */
+        left: 0;
+        bottom: -10px; /* Mais afastado do texto */
+        transition: width 0.4s ease-out; /* Transição mais suave */
+    }
+
+    .main-nav a:hover::after,
+    .main-nav a.active::after {
+        width: 100%;
+    }
+
+    /* Menu Hamburguer (Mobile) */
+    .hamburger-menu {
+        display: none;
+        background: none;
+        border: none;
+        color: #fce4a4;
+        font-size: 2.2em;
+        cursor: pointer;
+        padding: 12px;
+        transition: transform 0.3s ease;
+    }
+    .hamburger-menu:hover {
+        transform: rotate(90deg);
+    }
+
+
+    /* Conteúdo da Página */
+    .page-content {
+        padding: 60px 20px;
+        flex-grow: 1;
+    }
+
+    /* Seção Hero (Página Inicial) */
+    .hero-section {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(to right, #4b0082, #5a2d82); /* Gradiente dentro da seção */
+        padding: 60px;
+        border-radius: 25px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5); /* Sombra mais intensa */
+        margin-bottom: 60px;
+        flex-wrap: wrap;
+        border: 3px solid #fce4a4; /* Borda dourada mais proeminente */
+        position: relative;
+        overflow: hidden; /* Garante que o pseudo-elemento de fundo não vaze */
+    }
+    /* Efeito de fundo sutil para a seção hero */
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle at center, rgba(252, 228, 164, 0.1) 0%, transparent 70%);
+        animation: rotateGradient 20s linear infinite; /* Animação de rotação */
+        z-index: 0;
+    }
+    @keyframes rotateGradient {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+
+    .hero-text {
+        flex: 1;
+        min-width: 380px;
+        margin-right: 50px;
+        color: #e0c8b3;
+        position: relative; /* Para z-index sobre o pseudo-elemento */
+        z-index: 1;
+    }
+
+    .hero-text h2 {
+        font-size: 4em;
+        line-height: 1.2;
+        color: #fce4a4;
+        margin-bottom: 30px;
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.6);
+    }
+
+    .hero-image {
+        flex: 1;
+        min-width: 380px;
+        text-align: center;
+        position: relative;
+        z-index: 1;
+    }
+
+    .hero-image img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+        border: 4px solid #fce4a4; /* Borda dourada mais grossa na imagem */
+        transition: transform 0.4s ease-out;
+    }
+    .hero-image img:hover {
+        transform: scale(1.03); /* Efeito de zoom sutil na imagem */
+    }
+
+    /* Seções Destacadas */
+    .featured-sections h3 {
+        text-align: center;
+        margin-bottom: 50px;
+        font-size: 3.5em;
+        color: #fce4a4;
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    .featured-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 45px;
+    }
+
+    .featured-card {
+        background-color: rgba(253, 250, 250, 0.95); /* Fundo quase opaco para cards */
+        padding: 35px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+        text-align: center;
+        transition: all 0.4s ease;
+        border: 2px solid #e0c8b3; /* Borda suave */
+    }
+
+    .featured-card:hover {
+        transform: translateY(-10px) scale(1.02); /* Efeito de elevação e leve zoom */
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45);
+        background-color: rgba(253, 250, 250, 1); /* Totalmente opaco ao hover */
+        border-color: #8c005b; /* Mudar cor da borda ao hover */
+    }
+
+    .featured-card img {
+        max-width: 100%;
+        height: 220px; /* Altura fixa um pouco maior para as imagens dos cards */
+        object-fit: cover;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+        border: 2px solid #fce4a4; /* Borda dourada nas imagens dos cards */
+        transition: border-color 0.3s ease;
+    }
+    .featured-card:hover img {
+        border-color: #8c005b; /* Mudar cor da borda da imagem ao hover do card */
+    }
+
+
+    .featured-card h4 {
+        color: #4b0082; /* Roxo escuro para títulos de cards */
+        margin-bottom: 18px;
+        font-size: 1.9em;
+        text-shadow: none;
+    }
+    .featured-card p {
+        color: #333; /* Texto dentro dos cards */
+        font-size: 1.05em;
+    }
+
+    /* Páginas Dicas e Simpatias */
+    .tips-intro, .simpatias-page .simpatia-list h2 {
+        text-align: center;
+        margin-bottom: 50px;
+        background: linear-gradient(to right, #4b0082, #5a2d82);
+        padding: 50px;
+        border-radius: 25px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+        border: 3px solid #fce4a4;
+    }
+
+    .tips-intro h2, .simpatias-page .simpatia-list h2 {
+        color: #fce4a4;
+        font-size: 3.5em;
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.6);
+    }
+    .tips-intro p, .simpatias-page .simpatia-list p {
+        color: #e0c8b3;
+        font-size: 1.1em;
+    }
+
+    .tarot-tips-list .tip-card,
+    .simpatia-list .simpatia-card .simpatia-item {
+        background-color: rgba(253, 250, 250, 0.95);
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        margin-bottom: 40px;
+        border: 2px solid #e0c8b3;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .tarot-tips-list .tip-card:hover,
+    .simpatia-list .simpatia-card .simpatia-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.4);
+    }
+
+    .tip-card h3, .simpatia-item h4 {
+        color: #4b0082;
+        margin-bottom: 25px;
+        text-align: center;
+        font-size: 2em;
+        text-shadow: none;
+    }
+    .tip-card p, .simpatia-item p {
+        color: #333;
+        font-size: 1.05em;
+    }
+
+
+    .tip-card img, .simpatia-item img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        border: 3px solid #fce4a4;
+    }
+
+    .tip-card ul, .simpatia-item ul, .simpatia-item ol {
+        list-style: none;
+        padding-left: 30px;
+        margin-bottom: 25px;
+    }
+
+    .tip-card ul li, .simpatia-item ul li, .simpatia-item ol li {
+        margin-bottom: 10px;
+        color: #333;
+        font-size: 1.05em;
+    }
+
+    .tip-card ul li::before, .simpatia-item ul li::before {
+        content: '\2728'; /* Ícone de estrela para listas */
+        color: #8c005b; /* Vinho para as estrelas */
+        font-weight: bold;
+        display: inline-block;
+        width: 1.4em; /* Tamanho maior para o ícone */
+        margin-left: -1.4em;
+    }
+    .simpatia-item ol li {
+        margin-bottom: 10px;
+    }
+
+    /* Página de Simpatias Específica */
+    .simpatias-page {
+        display: flex;
+        gap: 50px; /* Aumento do espaçamento */
+        flex-wrap: wrap;
+    }
+
+    .simpatia-categories {
+        flex: 0 0 300px; /* Largura maior para a sidebar */
+        background: linear-gradient(to bottom, #5a2d82, #4b0082); /* Gradiente na sidebar */
+        padding: 35px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+        position: sticky;
+        top: 130px; /* Ajuste para ficar abaixo do cabeçalho */
+        align-self: flex-start;
+        border: 3px solid #fce4a4;
+    }
+
+    .simpatia-categories h3 {
+        color: #fce4a4;
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 2em;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .simpatia-categories ul {
+        list-style: none;
+        padding: 0;
+    }
+
+    .simpatia-categories li {
+        margin-bottom: 18px; /* Aumento do espaçamento entre itens */
+    }
+
+    .simpatia-categories a {
+        display: block;
+        padding: 15px 25px;
+        background-color: rgba(252, 228, 164, 0.15); /* Fundo semi-transparente dourado */
+        border-radius: 10px;
+        color: #fce4a4;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(252, 228, 164, 0.4);
+        font-size: 1.1em;
+    }
+
+    .simpatia-categories a:hover {
+        background-color: #fce4a4;
+        color: #4b0082;
+        transform: translateX(8px); /* Efeito de deslize */
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .simpatia-list {
+        flex: 1;
+        min-width: 600px; /* Garante um bom tamanho para o conteúdo */
+    }
+
+    .simpatia-card {
+        margin-bottom: 60px;
+    }
+
+    .simpatia-card .category-title {
+        color: #fce4a4;
+        font-size: 3em;
+        margin-bottom: 35px;
+        text-align: center;
+        position: relative;
+        padding-bottom: 20px;
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+    }
+
+    .simpatia-card .category-title::after {
+        content: '';
+        width: 120px; /* Linha de destaque maior */
+        height: 5px;
+        background-color: #8c005b;
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: 3px;
+    }
+
+    .simpatia-item .items-needed, .simpatia-item .how-to-do {
+        background-color: rgba(244, 233, 215, 0.98); /* Fundo quase opaco para clareza do texto */
+        padding: 30px;
+        border-radius: 15px;
+        margin-top: 30px;
+        border: 2px solid #dcdcdc;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .simpatia-item .items-needed h5, .simpatia-item .how-to-do h5 {
+        color: #4b0082;
+        margin-bottom: 18px;
+        font-size: 1.6em;
+        text-shadow: none;
+        position: relative;
+        padding-bottom: 5px;
+    }
+    .simpatia-item .items-needed h5::after, .simpatia-item .how-to-do h5::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 50px;
+        height: 2px;
+        background-color: #fce4a4;
+    }
+
+    .simpatia-item .items-needed ul li, .simpatia-item .how-to-do ol li {
+        color: #333;
+        font-size: 1.05em;
+        line-height: 1.8;
+    }
+
+    /* Página de Contato */
+    .contact-section {
+        background: linear-gradient(to right, #4b0082, #5a2d82);
+        padding: 60px;
+        border-radius: 25px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+        text-align: center;
+        border: 3px solid #fce4a4;
+        color: #e0c8b3;
+    }
+
+    .contact-info {
+        margin-bottom: 40px;
+        font-size: 1.3em;
+    }
+
+    .contact-info p {
+        margin-bottom: 15px;
+        color: #e0c8b3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .contact-info i {
+        color: #fce4a4;
+        margin-right: 18px;
+        font-size: 1.5em;
+    }
+    .contact-info a {
+        color: #e0c8b3;
+        border-bottom: 1px dashed #e0c8b3;
+        transition: color 0.3s ease, border-color 0.3s ease;
+    }
+    .contact-info a:hover {
+        color: #fce4a4;
+        border-bottom-color: #fce4a4;
+    }
+
+
+    .contact-form {
+        max-width: 700px; /* Formulário um pouco mais largo */
+        margin: 0 auto;
+        text-align: left;
+        background-color: rgba(253, 250, 250, 0.98);
+        padding: 45px;
+        border-radius: 20px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        border: 2px solid #e0c8b3;
+    }
+
+    .contact-form h3 {
+        text-align: center;
+        margin-bottom: 35px;
+        color: #4b0082;
+        font-size: 2.8em;
+        text-shadow: none;
+    }
+
+    .form-group {
+        margin-bottom: 30px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 12px;
+        font-weight: bold;
+        color: #333;
+        font-size: 1.1em;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="email"],
+    .form-group textarea {
+        width: 100%;
+        padding: 18px; /* Padding maior nos campos */
+        border: 1px solid #ccc;
+        border-radius: 12px; /* Bordas mais arredondadas */
+        font-size: 1.15em;
+        font-family: 'Merriweather', serif;
+        box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.1);
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+        border-color: #5a2d82;
+        outline: none;
+        box-shadow: 0 0 10px rgba(90, 45, 130, 0.5);
+    }
+
+    .contact-form button {
+        width: auto;
+        padding: 18px 40px;
+        display: block;
+        margin: 0 auto;
+        font-size: 1.2em;
+    }
+
+    .form-note {
+        font-size: 1.05em;
+        color: #666;
+        margin-top: 30px;
+    }
+
+    /* Rodapé */
+    .main-footer {
+        background: linear-gradient(to right, #1a002b, #2a003f);
+        color: #fff;
+        padding: 30px 0;
+        text-align: center;
+        margin-top: auto;
+        border-top-left-radius: 25px;
+        border-top-right-radius: 25px;
+        box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.5);
+        position: relative;
+        border-top: 1px solid rgba(252, 228, 164, 0.3);
+    }
+
+    .main-footer .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Publicidade Shopee */
+    .shopee-ad-link {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background-color: #fce4a4;
+        padding: 12px 25px;
+        border-radius: 30px;
+        color: #4b0082;
+        font-weight: bold;
+        margin-top: 25px;
+        transition: all 0.3s ease;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+    }
+
+    .shopee-ad-link:hover {
+        transform: translateY(-8px) scale(1.05); /* Efeito mais pronunciado */
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.4);
+        background-color: #e0c8b3;
+        text-decoration: none;
+        color: #8c005b;
+    }
+
+    .shopee-ad-link img {
+        height: 40px; /* Tamanho maior para o banner */
+        width: auto;
+        border-radius: 10px;
+    }
+
+    .shopee-text {
+        font-size: 1.1em;
+        white-space: nowrap;
+    }
+
+    /* Responsividade */
+    @media (max-width: 992px) {
+        h1 { font-size: 3em; }
+        h2 { font-size: 2.5em; }
+        h3 { font-size: 2em; }
+
+        .hero-section {
+            flex-direction: column;
+            padding: 50px;
+        }
+        .hero-text {
+            margin-right: 0;
+            margin-bottom: 40px;
+        }
+        .hero-text h2 {
+            font-size: 3.2em;
+        }
+
+        .featured-grid {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        .simpatias-page {
+            flex-direction: column;
+            gap: 40px;
+        }
+        .simpatia-categories {
+            position: static;
+            width: 100%;
+            margin-bottom: 0;
+            padding: 30px;
+        }
+        .simpatia-list {
+            min-width: unset;
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .main-header .container {
+            flex-direction: column;
+            text-align: center;
+            align-items: flex-start; /* Alinhar logo/hamburguer à esquerda */
+        }
+        .main-header h1 {
+            margin-bottom: 20px;
+            font-size: 2.8em;
+            text-align: left;
+            width: 100%;
+        }
+
+        .hamburger-menu {
+            display: block;
+            position: absolute;
+            top: 25px;
+            right: 20px;
+            margin: 0;
+        }
+
+        .main-nav {
+            order: 2;
+            width: 100%;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out; /* Transição mais lenta para abrir/fechar */
+            background-color: rgba(75, 0, 130, 0.98); /* Fundo quase opaco para o menu aberto */
+            border-radius: 15px;
+            margin-top: 15px;
+            border: 1px solid rgba(252, 228, 164, 0.4);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .main-nav.active {
+            max-height: 400px; /* Altura suficiente para o menu completo */
+        }
+
+        .main-nav ul {
+            flex-direction: column;
+            padding: 20px 0;
+        }
+
+        .main-nav li {
+            margin: 0;
+            padding: 15px 0;
+        }
+
+        .main-nav a {
+            padding: 15px 25px;
+            display: block;
+            text-align: center;
+            font-size: 1.2em;
+            border-bottom: 1px dashed rgba(252, 228, 164, 0.2); /* Linha divisória suave */
+        }
+        .main-nav li:last-child a {
+            border-bottom: none; /* Remove a linha do último item */
+        }
+        .main-nav a::after {
+            bottom: -3px; /* Ajuste para o menu mobile */
+            height: 3px;
+        }
+
+        .hero-text h2 {
+            font-size: 2.5em;
+        }
+        .featured-card img {
+            height: 180px;
+        }
+
+        .tips-intro h2, .simpatias-page .simpatia-list h2 {
+            font-size: 2.8em;
+        }
+        .simpatia-card .category-title {
+            font-size: 2.5em;
+        }
+
+        .shopee-ad-link {
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+            width: 90%;
+            max-width: 250px;
+        }
+        .shopee-text {
+            font-size: 0.9em;
+        }
+    }
+
+    @media (max-width: 480px) {
+        h1 { font-size: 2.2em; }
+        h2 { font-size: 2em; }
+        h3 { font-size: 1.8em; }
+
+        .hero-text h2 {
+            font-size: 2em;
+        }
+
+        .cta-button {
+            padding: 12px 25px;
+            font-size: 1em;
+        }
+        .page-content {
+            padding: 40px 15px;
+        }
+        .hero-section {
+            padding: 30px;
+        }
+        .featured-sections h3 {
+            font-size: 2.5em;
+        }
+        .featured-card {
+            padding: 25px;
+        }
+        .tips-intro h2, .simpatias-page .simpatia-list h2 {
+            font-size: 2.2em;
+        }
+        .tarot-tips-list .tip-card,
+        .simpatia-list .simpatia-card .simpatia-item {
+            padding: 30px;
+        }
+        .simpatia-card .category-title {
+            font-size: 2em;
+        }
+        .contact-section {
+            padding: 40px;
+        }
+        .contact-form {
+            padding: 30px;
+        }
+        .form-group input, .form-group textarea {
+            padding: 15px;
+        }
+        .contact-form button {
+            padding: 15px 30px;
+        }
+        .main-footer {
+            padding: 20px 0;
+        }
+    }
+</style>
