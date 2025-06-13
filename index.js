@@ -476,7 +476,7 @@ async function startBot() {
               await sock.sendPresenceUpdate("paused", sender); // Volta ao normal
             }
             await sock.sendMessage(sender, {
-              text: "💖 Essa foi a sua tiragem de hoje, meu benzinho. A Vovozinha sente que o universo já te deu as dicas necessárias para o dia. Volte amanhã para uma nova tiragem! ✨",
+              text: "💖 Essa foi a sua tiragem de hoje, meu benzinho. A Vovozinha sente que o universo já te deu as dicas necessárias para o dia. Volte amanhã para uma nova tiragem! Limpeza Energética e Proteção Espiritual Visite https://s.shopee.com.br/BHzHi3dTW ✨",
             });
           } else {
             await sock.sendMessage(sender, {
