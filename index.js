@@ -218,7 +218,7 @@ async function startBot() {
         await sock.sendPresenceUpdate("paused", sender); // Volta ao normal
       }
       await sock.sendMessage(sender, {
-        text: "Leitura de Tarot cancelada, meu benzinho. Volte sempre que precisar de um carinho da Vovó! 💖",
+        text: "Leitura de Tarot cancelada, meu benzinho. Volte sempre que precisar de um carinho da Vovó! 💖 Limpeza Energética e Proteção Espiritual Visite https://s.shopee.com.br/BHzHi3dTW",
       });
       return;
     }
