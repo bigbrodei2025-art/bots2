@@ -149,7 +149,7 @@ async function startBot() {
           await sock.sendPresenceUpdate("paused", sender); // Volta ao normal
         }
         await sock.sendMessage(sender, {
-          text: "Vovozinha já fez uma leitura para você hoje, meu benzinho. Volte amanhã para uma nova tiragem e um novo conselho. 🌙 Tenha um dia abençoado! ✨",
+          text: "Vovozinha já fez uma leitura para você hoje, meu benzinho. Volte amanhã para uma nova tiragem e um novo conselho. 🌙 Tenha um dia abençoado!  Limpeza Energética e Proteção Espiritual Visite https://s.shopee.com.br/BHzHi3dTW ✨",
         });
         return;
       }
