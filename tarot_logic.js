@@ -1,14 +1,14 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Your Gemini API key.
-// For PRODUCTION environment, CHANGE to: const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_KEY = "AIzaSyDZHhperMleBfYvg0RMBIfLye1uMUxqC7o"; // Change to process.env.GEMINI_API_KEY in production!
+// Sua chave de API do Gemini.
+// Para ambiente de PRODUÇÃO, MUDAR para: const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = "AIzaSyDZHhperMleBfYvg0RMBIfLye1uMUxqC7o"; // Mude para process.env.GEMINI_API_KEY em produção!
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-// Using 'gemini-1.5-flash' as requested
+// Usando 'gemini-1.5-flash' como solicitado
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// --- Functions to Validate and Format Date ---
+// --- Funções para Validar e Formatar Data ---
 function formatar_data(data_str) {
     if (!/^\d{8}$/.test(data_str)) {
         throw new Error("Oops! The date must have 8 numeric digits (DDMMYYYY), like 19022001.");
