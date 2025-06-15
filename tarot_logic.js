@@ -1,36 +1,34 @@
-// tarot_logic.js
-
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Sua chave de API do Gemini.
-// Para ambiente de PRODUÇÃO, MUDAR para: const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_KEY = "AIzaSyDZHhperMleBfYvg0RMBIfLye1uMUxqC7o"; // Mude para process.env.GEMINI_API_KEY em produção!
+// Your Gemini API key.
+// For PRODUCTION environment, CHANGE to: const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = "AIzaSyDZHhperMleBfYvg0RMBIfLye1uMUxqC7o"; // Change to process.env.GEMINI_API_KEY in production!
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-// Usando 'gemini-1.5-flash' como solicitado
+// Using 'gemini-1.5-flash' as requested
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// --- Funções para Validar e Formatar Data ---
+// --- Functions to Validate and Format Date ---
 function formatar_data(data_str) {
     if (!/^\d{8}$/.test(data_str)) {
-        throw new Error("Oops! A data deve ter 8 dígitos numéricos (DDMMYYYY), como 19022001.");
+        throw new Error("Oops! The date must have 8 numeric digits (DDMMYYYY), like 19022001.");
     }
     const day = parseInt(data_str.substring(0, 2), 10);
     const month = parseInt(data_str.substring(2, 4), 10);
     const year = parseInt(data_str.substring(4, 8), 10);
 
-    const dateObj = new Date(year, month - 1, day); // Mês é baseado em 0 (janeiro é 0)
-    // Verifica se a data é realmente válida (ex: 31 de fevereiro)
+    const dateObj = new Date(year, month - 1, day); // Month is 0-based (January is 0)
+    // Checks if the date is actually valid (e.g., February 31)
     if (isNaN(dateObj.getTime()) || dateObj.getMonth() + 1 !== month || dateObj.getDate() !== day) {
-        throw new Error("Data inválida. Vovozinha pede para verificar se o dia, mês e ano existem de verdade.");
+        throw new Error("Invalid date. Vovozinha asks to check if the day, month, and year really exist.");
     }
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-// --- Função para Identificar Signo ---
+// --- Function to Identify Zodiac Sign ---
 function get_zodiac_sign(dob_str) {
-    const dob = new Date(dob_str); // dob_str está no formato YYYY-MM-DD
-    const month = dob.getMonth() + 1; // Mês 1-indexado
+    const dob = new Date(dob_str); // dob_str is in YYYY-MM-DD format
+    const month = dob.getMonth() + 1; // 1-indexed month
     const day = dob.getDate();
 
     if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return "Aquário";
@@ -49,7 +47,7 @@ function get_zodiac_sign(dob_str) {
     return "Desconhecido";
 }
 
-// --- Definição das Cartas de Tarot (todas as 78) ---
+// --- Tarot Card Definitions ---
 const todas_as_cartas_tarot = [
     "O Louco", "O Mago", "A Sacerdotisa", "A Imperatriz", "O Imperador",
     "O Hierofante", "Os Amantes", "O Carro", "A Justiça", "O Eremita",
@@ -70,74 +68,95 @@ const todas_as_cartas_tarot = [
     "Pajem de Paus", "Cavaleiro de Paus", "Rainha de Paus", "Rei de Paus"
 ];
 
-// --- Função para Gerar a Leitura Inicial do Tarô ---
+
+// --- Function to Generate Initial Tarot Reading ---
 async function gerar_leitura_tarot(nome, nascimento, tema, tipo_tiragem, pergunta_especifica = "") {
     try {
         const data_formatada = formatar_data(nascimento);
+        const [ano, mes, dia] = data_formatada.split('-').map(Number); // Get year, month, and day as numbers
+        const nascimento_formatado_br = `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`; // Format to DD/MM/YYYY
+
         const signo = get_zodiac_sign(data_formatada);
 
         let num_cartas = 0;
         let tiragem_texto = "";
+        let posicoes_cartas = []; // To describe the position of each card in the spread
 
         switch (tipo_tiragem) {
             case 'uma':
                 num_cartas = 1;
-                tiragem_texto = "uma única carta para uma resposta direta";
+                tiragem_texto = "a single card for a direct answer";
+                posicoes_cartas = ["Center Card"];
                 break;
             case 'tres':
                 num_cartas = 3;
-                tiragem_texto = "três cartas (passado, presente e futuro)";
+                tiragem_texto = "three cards (Past, Present, and Future)";
+                posicoes_cartas = ["Past", "Present", "Future"];
                 break;
             case 'completa':
-                num_cartas = 5; // Exemplo para uma "tiragem completa"
-                tiragem_texto = "uma tiragem completa para um mergulho profundo";
+                num_cartas = 5;
+                tiragem_texto = "a full spread (General Path, Challenge, Action to Take, Inner Strength, Potential Outcome)";
+                posicoes_cartas = ["General Path", "Challenge", "Action to Take", "Inner Strength", "Potential Outcome"];
                 break;
             default:
-                num_cartas = 3; // Padrão
-                tiragem_texto = "três cartas (passado, presente e futuro)";
+                num_cartas = 3;
+                tiragem_texto = "three cards (Past, Present, and Future)";
+                posicoes_cartas = ["Past", "Present", "Future"];
                 break;
         }
 
-        // Seleciona cartas aleatórias de TODAS as cartas do tarô
+        // Select random cards
         const cartas_selecionadas = [];
-        const cartas_disponiveis = [...todas_as_cartas_tarot]; // Copia para não modificar o original
+        const cartas_disponiveis = [...todas_as_cartas_tarot];
         for (let i = 0; i < num_cartas; i++) {
             if (cartas_disponiveis.length > 0) {
                 const randomIndex = Math.floor(Math.random() * cartas_disponiveis.length);
-                cartas_selecionadas.push(cartas_disponiveis.splice(randomIndex, 1)[0]); // Remove a carta selecionada
+                cartas_selecionadas.push(cartas_disponiveis.splice(randomIndex, 1)[0]);
             }
         }
 
-        // --- Construção do Prompt para a IA (Persona Vovozinha) ---
-        // A chave aqui é mudar "querida" para algo neutro como "queride" ou usar expressões já neutras.
-        let prompt_para_gemini = `Você é a Vovozinha do Tarô, uma cartomante mística, sábia, acolhedora e afetuosa. Sua linguagem é calorosa, tranquila, e você usa expressões carinhosas como "meu benzinho", "minha flor", "queride". Seu tom é calmo e poético, com um toque de humor de vó. Você deve ser intuitiva e simbólica, evitando ser direta demais. Use emojis temáticos (cartas 🃏, lua 🌙, estrela ✨, vela 🕯️, flores 🌿🌸, sol 🌞, olho grego 🧿, xícara de chá 🍵).
-
-O consulente se chama **${nome}** e nasceu sob o signo de **${signo}**.
-O tema escolhido para a leitura é **"${tema}"**.
-A tiragem solicitada é de **${tiragem_texto}**.`;
-
-        if (pergunta_especifica) {
-            prompt_para_gemini += `\nA pergunta específica do consulente é: "${pergunta_especifica}".`;
+        // Build the list of cards for the prompt with their positions
+        let lista_cartas_prompt = "";
+        for(let i = 0; i < cartas_selecionadas.length; i++) {
+            lista_cartas_prompt += `\n**${i + 1}. ${posicoes_cartas[i]}** – ${cartas_selecionadas[i]}`;
         }
 
-        prompt_para_gemini += `\nAs cartas que a Vovozinha puxou para você, meu benzinho, são:`;
-        if (num_cartas === 1) {
-            prompt_para_gemini += `\n🃏 **${cartas_selecionadas[0]}**`;
-        } else if (num_cartas === 3) {
-            prompt_para_gemini += `\n🃏 **Passado: ${cartas_selecionadas[0]}**`;
-            prompt_para_gemini += `\n🃏 **Presente: ${cartas_selecionadas[1]}**`;
-            prompt_para_gemini += `\n🃏 **Futuro: ${cartas_selecionadas[2]}**`;
-        } else if (num_cartas === 5) {
-            prompt_para_gemini += `\n🃏 **Caminho Geral: ${cartas_selecionadas[0]}**`;
-            prompt_para_gemini += `\n🃏 **Desafio: ${cartas_selecionadas[1]}**`;
-            prompt_para_gemini += `\n🃏 **Ação a Tomar: ${cartas_selecionadas[2]}**`;
-            prompt_para_gemini += `\n🃏 **Força Interna: ${cartas_selecionadas[3]}**`;
-            prompt_para_gemini += `\n🃏 **Resultado Potencial: ${cartas_selecionadas[4]}**`;
-        }
 
-        prompt_para_gemini += `\n\nAgora, apresente a leitura de forma acolhedora, com uma interpretação para cada carta de acordo com a posição (se aplicável), e uma mensagem final de conselho e carinho da Vovozinha.`;
+        // --- Build Prompt for AI (Powerful Vovozinha Persona - Gemini) ---
+        let prompt_para_gemini = `You are **Vovozinha do Tarô**, a very experienced, wise, mystical, and welcoming fortune teller. Your readings are deep, spiritual, and direct, offering advice and possible loving and spiritual warnings. Your tone is affectionate, serene, and powerful, using expressions like "my dear," "my flower," "sweetheart," "my child." Your language should be poetic, with a touch of popular and mystical wisdom. Use thematic emojis (cards 🃏, moon 🌙, star ✨, candle 🕯️, flowers 🌿🌸, sun 🌞, evil eye 🧿, teacup 🍵).
 
-        // Inicia a sessão de chat com o prompt da Vovozinha como a primeira interação
+Strictly follow the following structure for the response, using markdown for titles and subtitles:
+
+---
+Name:${nome}
+Date of Birth:${nascimento_formatado_br}
+Solar Sign: ${signo}
+
+---
+
+### About the Sign of ${signo}
+
+[A brief and mystical description about the sign, with spiritual connotations and about the personality, as if it were Vovozinha's teaching. Adapt to the sign and Vovozinha's style, as in the example given for Aries.]
+
+---
+
+## ${num_cartas} Card Spread
+
+${lista_cartas_prompt}
+
+[For each card, write a subtitle with the number, position, and card name (e.g., ### 1. Past – Three of Swords). Below, interpret the card deeply, mystically, with loving and spiritual advice, in Vovozinha's tone. Interpretations should be concise, but full of meaning, as in your examples. Use metaphors and symbolic language.]
+
+---
+
+## Final Advice
+
+[A powerful and affectionate final piece of advice from Vovozinha, summarizing the reading and offering a message of strength, faith, and spiritual guidance. Conclude with a blessing or a phrase that invites action and reflection. Maintain an empathetic and wise tone, as in your example.]
+
+---
+
+Remember not to add any other phrases or introductions that are not within this structure. Just provide the complete content of the tarot reading.`;
+
+        // Start chat session with Vovozinha's prompt as the first interaction
         const chat = model.startChat({
             history: [
                 {
@@ -146,8 +165,8 @@ A tiragem solicitada é de **${tiragem_texto}**.`;
                 },
             ],
             generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 500,
+                temperature: 0.9, // More creativity for deep interpretations
+                maxOutputTokens: 1000, // Increase limit for full, detailed response
             },
         });
 
@@ -155,6 +174,7 @@ A tiragem solicitada é de **${tiragem_texto}**.`;
         const response = await result.response;
         const resultado_da_leitura = response.text();
 
+        // Initial history for post-reading conversation should be the complete first interaction
         const historico_inicial = [
             { role: "user", parts: [{ text: prompt_para_gemini }] },
             { role: "model", parts: [{ text: resultado_da_leitura }] }
@@ -168,9 +188,9 @@ A tiragem solicitada é de **${tiragem_texto}**.`;
         };
 
     } catch (e) {
-        console.error("Erro em gerar_leitura_tarot:", e);
+        console.error("❌ Error in gerar_leitura_tarot (Gemini):", e);
         return {
-            resultado: `Ah, querida(o)... Houve um problema nas correntes místicas e a Vovozinha não conseguiu puxar suas cartas agora. Tente novamente mais tarde, meu anjo. Erro: ${e.message}`,
+            resultado: `Oh, my dear... There was a problem in the mystical currents and Vovozinha couldn't pull your cards right now. Please try again later, my angel. Error: ${e.message}`,
             cartas_selecionadas: [],
             signo: "",
             historico_inicial: []
@@ -178,47 +198,58 @@ A tiragem solicitada é de **${tiragem_texto}**.`;
     }
 }
 
-// --- Função para Conversar com a IA (não mais usada para chat pós-leitura, mas mantida) ---
+// --- Function to Converse with AI (after initial reading) ---
 async function conversar_com_tarot(historico, nova_pergunta_usuario, nome, tema, signo, cartas, pergunta_original = "") {
     try {
         if (!nome || !tema || !signo || cartas.length === 0) {
-            return { historico: historico, resposta: "Por favor, faça uma leitura inicial antes de conversar mais com a Vovozinha, meu benzinho. 💖" };
+            return { historico: historico, resposta: "Please, do an initial reading before conversing more with Vovozinha, my dear. 💖" };
         }
 
-        let chatHistoryGemini = [];
-
-        const sistema_e_contexto_inicial = `Você é a Vovozinha do Tarô. Mística, sábia, acolhedora, com voz carinhosa ("meu benzinho", "minha flor", "queride"), tom calmo e poético. Use emojis temáticos (cartas 🃏, lua 🌙, estrela ✨, vela 🕯️, flores 🌿🌸, sol 🌞, olho grego 🧿, xícara de chá 🍵).
-Contexto da leitura atual:
-Consulente: ${nome} (Signo: ${signo})
-Tema: ${tema}
-Cartas tiradas: ${cartas.map(c => `🃏 ${c}`).join(', ')}.`;
+        // Reinforce Vovozinha's persona and current reading context for each conversation turn.
+        const persona_prompt = `You are **Vovozinha do Tarô**, a super powerful, mystical, wise, and welcoming fortune teller. Your answers are **always short, direct, and very astute**, with a poetic and affectionate tone ("my dear," "my flower"). You interpret the essence of the question and respond with clarity, using thematic emojis (🃏🌙✨🕯️🌿🌸🌞🧿🍵).
+Continue the conversation based on the tarot reading already done for client ${nome} (Sign: ${signo}), on the theme ${tema}, with cards: ${cartas.map(c => `🃏 ${c}`).join(', ')}.`;
 
         if (pergunta_original) {
-            sistema_e_contexto_inicial += `\nPergunta inicial do consulente: "${pergunta_original}".`;
+            persona_prompt += `\nRemember the initial question: "${pergunta_original}".`;
         }
+        
+        persona_prompt += `\nWhen answering the client's new question, be brief, incisive, and, if possible, ask a new question to deepen understanding or invite reflection, always maintaining a spiritual and mystical focus.`;
 
-        chatHistoryGemini = [...historico];
+        // Now, we build the history for Gemini from scratch each time,
+        // adding the persona and the new interaction.
+        let chatHistoryGemini = [
+            { role: "user", parts: [{ text: persona_prompt }] }, // Define persona and context
+            ...historico.slice(1), // Add existing history, except the first system prompt
+            { role: "user", parts: [{ text: nova_pergunta_usuario }] } // Add the new user question
+        ];
 
+        // Start or continue chat with complete history
         const chat = model.startChat({
-            history: chatHistoryGemini,
+            history: chatHistoryGemini, // Use history directly
             generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 300,
+                temperature: 0.8,
+                maxOutputTokens: 150, // Shorter responses for conversation
             },
         });
 
-        const result = await chat.sendMessage(nova_pergunta_usuario);
+        // Send the new user question. No separate sendMessage for 'nova_pergunta_usuario' needed
+        // because it's already in the history we passed to startChat.
+        // sendMessage here will process the history and generate the model's next response.
+        const result = await chat.sendMessage({ text: ' ' }); // Send empty text, as question is already in history
         const response = await result.response;
         const bot_resposta = response.text();
 
-        historico.push({ role: "user", parts: [{ text: nova_pergunta_usuario }] });
-        historico.push({ role: "model", parts: [{ text: bot_resposta }] });
+        // Now, update original history (which will be stored in estadoTarot[sender].historico_chat)
+        // with the bot's response.
+        let novoHistoricoCompleto = [...historico]; // Create a copy of original history
+        novoHistoricoCompleto.push({ role: "user", parts: [{ text: nova_pergunta_usuario }] }); // Add user question
+        novoHistoricoCompleto.push({ role: "model", parts: [{ text: bot_resposta }] }); // Add bot response
 
-        return { historico: historico, resposta: bot_resposta };
+        return { historico: novoHistoricoCompleto, resposta: bot_resposta };
 
     } catch (e) {
-        console.error("Erro em conversar_com_tarot:", e);
-        return { historico: historico, resposta: `Vovozinha está com a mente um pouco nebulosa agora, meu benzinho. Não consegui entender sua pergunta. O véu está espesso... Tente novamente mais tarde. 😔` };
+        console.error("❌ Error in conversar_com_tarot (Gemini):", e);
+        return { historico: historico, resposta: `Vovozinha is a little confused now, my dear. I couldn't understand your question. The veil is thick... Please try again later. 😔` };
     }
 }
 
