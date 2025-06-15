@@ -14,7 +14,7 @@ const fs = require("fs");
 const path = require("path");
 const express = require('express');
 const app = express();
-const cron = require('node-cron'); // Keeps cron, but proactive reminders are disabled
+// REMOVIDO: const cron = require('node-cron');
 const axios = require('axios'); // Import axios for HTTP requests
 const xml2js = require('xml2js'); // Import xml2js to parse XML from PagBank
 
@@ -140,65 +140,6 @@ app.post('/webhook-pagbank', async (req, res) => {
     res.status(200).send('OK'); // ALWAYS respond 200 OK to the webhook
 });
 
-app.listen(PORT, () => {
-  console.log(`HTTP Server started on port ${PORT}`);
-});
-
-// --- Function to Generate Pix Payment on PagBank (Returns Pix Copia e Cola) ---
-async function gerarCobrancaPixPagBank(amountInCents, orderReferenceId) {
-    try {
-        const chargesApiUrl = 'https://api.pagseguro.com/charges'; // Endpoint to create Pix payments in API V4
-
-        const headers = {
-            'Authorization': `Bearer ${PAGBANK_API_KEY}`,
-            'Content-Type': 'application/json',
-            'x-api-version': '4.0' // Check API version in PagBank documentation for your account
-        };
-
-        const body = {
-            reference_id: orderReferenceId, // Your unique ID for this transaction
-            description: "Vovozinha's Tarot Reading - Pix",
-            amount: {
-                value: amountInCents,
-                currency: "BRL"
-            },
-            payment_method: {
-                type: "PIX",
-                installments: 1,
-                capture: true
-            },
-            notification_urls: [PAGBANK_WEBHOOK_URL], // Your webhook URL
-            soft_descriptor: "VOVOZINHA TARO", // Name that appears on statement
-            customer: {
-                name: `Vovozinha Client (${orderReferenceId})`, // Name for identification
-                email: "anonymous@example.com", // Standard or collected client email
-                tax_id: "00000000000" // Client's CPF, if collected and validated
-            }
-        };
-
-        const response = await axios.post(chargesApiUrl, body, { headers: headers });
-
-        if (response.data && response.data.charges && response.data.charges[0]) {
-            const charge = response.data.charges[0];
-            const pixInfo = charge.payment_method.qr_codes && charge.payment_method.qr_codes[0];
-
-            if (pixInfo && pixInfo.text_code) {
-                return {
-                    pixCopiaECola: pixInfo.text_code,
-                    qrCodeImageUrl: pixInfo.links ? pixInfo.links.find(link => link.rel === 'QR_CODE_PNG')?.href : null
-                };
-            }
-        }
-
-        console.error("❌ Unexpected response from PagBank Charges API (Pix):", response.data);
-        return { pixCopiaECola: null, qrCodeImageUrl: null };
-
-    } catch (error) {
-        console.error("❌ Error generating Pix payment with PagBank:", error.response ? error.response.data : error.message);
-        return { pixCopiaECola: null, qrCodeImageUrl: null };
-    }
-}
-
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(
@@ -226,8 +167,64 @@ async function startBot() {
     }
   });
 
-  // --- REMOVED: Proactive Reminder Scheduler Logic ---
-  console.log('⏰ Proactive reminder scheduler DISABLED, payment releases consultation! ✨');
+  // REMOVIDO: Agendador de lembretes proativos e toda a lógica de CRON
+  console.log('⏰ Proactive reminder scheduler DISABLED. Payment releases consultation! ✨');
+
+
+  // --- Function to Generate Pix Payment on PagBank (Returns Pix Copia e Cola) ---
+  async function gerarCobrancaPixPagBank(amountInCents, orderReferenceId) {
+      try {
+          const chargesApiUrl = 'https://api.pagseguro.com/charges'; // Endpoint to create Pix payments in API V4
+
+          const headers = {
+              'Authorization': `Bearer ${PAGBANK_API_KEY}`,
+              'Content-Type': 'application/json',
+              'x-api-version': '4.0' // Check API version in PagBank documentation for your account
+          };
+
+          const body = {
+              reference_id: orderReferenceId, // Your unique ID for this transaction
+              description: "Vovozinha's Tarot Reading - Pix",
+              amount: {
+                  value: amountInCents,
+                  currency: "BRL"
+              },
+              payment_method: {
+                  type: "PIX",
+                  installments: 1,
+                  capture: true
+              },
+              notification_urls: [PAGBANK_WEBHOOK_URL], // Your webhook URL
+              soft_descriptor: "VOVOZINHA TARO", // Name that appears on statement
+              customer: {
+                  name: `Vovozinha Client (${orderReferenceId})`, // Name for identification
+                  email: "anonymous@example.com", // Standard or collected client email
+                  tax_id: "00000000000" // Client's CPF, if collected and validated
+              }
+          };
+
+          const response = await axios.post(chargesApiUrl, body, { headers: headers });
+
+          if (response.data && response.data.charges && response.data.charges[0]) {
+              const charge = response.data.charges[0];
+              const pixInfo = charge.payment_method.qr_codes && charge.payment_method.qr_codes[0];
+
+              if (pixInfo && pixInfo.text_code) {
+                  return {
+                      pixCopiaECola: pixInfo.text_code,
+                      qrCodeImageUrl: pixInfo.links ? pixInfo.links.find(link => link.rel === 'QR_CODE_PNG')?.href : null
+                  };
+              }
+          }
+
+          console.error("❌ Unexpected response from PagBank Charges API (Pix):", response.data);
+          return { pixCopiaECola: null, qrCodeImageUrl: null };
+
+      } catch (error) {
+          console.error("❌ Error generating Pix payment with PagBank:", error.response ? error.response.data : error.message);
+          return { pixCopiaECola: null, qrCodeImageUrl: null };
+      }
+  }
 
 
   sock.ev.on("messages.upsert", async ({ messages }) => {
@@ -246,15 +243,17 @@ async function startBot() {
     }
     // -----------------------------------------------------
 
-    // --- REMOVED: Proactive Reminder Response Handling Logic ---
+    // REMOVIDO: Lógica de Tratamento de Respostas aos Lembretes Proativos (não há mais lembretes)
     if (usuariosTarotDB[sender].aguardando_resposta_lembrete) {
         const usuario = usuariosTarotDB[sender];
         const resposta = msg.trim().toLowerCase();
         
+        // This block should ideally not be reached as cron is disabled
+        // Kept for robustness in case of legacy states or manual opt-out process.
         if (resposta === "1" || resposta.includes("sim")) {
             await sock.sendPresenceUpdate("composing", sender);
             await new Promise((resolve) => setTimeout(resolve, 1500));
-            await sock.sendMessage(sender, { text: "Great, my dear! Come on, tell Vovozinha your **name** to begin? 😊" });
+            await sock.sendMessage(sender, { text: "Que bom, meu benzinho! Vamos lá, me diga qual o seu **nome** para a Vovozinha começar? 😊" });
             delete estadoTarot[sender];
             estadoTarot[sender] = { etapa: "aguardando_nome" };
             usuario.aguardando_resposta_lembrete = false;
@@ -263,7 +262,7 @@ async function startBot() {
         } else if (resposta === "2" || resposta.includes("não") || resposta.includes("nao")) {
             await sock.sendPresenceUpdate("composing", sender);
             await new Promise((resolve) => setTimeout(resolve, 1500));
-            await sock.sendMessage(sender, { text: "Alright, my dear. I'll be here when you need me. 💖" });
+            await sock.sendMessage(sender, { text: "Tudo bem, meu benzinho. Estarei aqui quando precisar. 💖" });
             usuario.aguardando_resposta_lembrete = false;
             salvarDB();
             return;
@@ -272,13 +271,13 @@ async function startBot() {
             usuario.aguardando_resposta_lembrete = false;
             await sock.sendPresenceUpdate("composing", sender);
             await new Promise((resolve) => setTimeout(resolve, 1500));
-            await sock.sendMessage(sender, { text: "Understood, my dear. I won't send proactive reminders anymore. If you need me, just call me with **!tarot** or **'vovó'**." });
+            await sock.sendMessage(sender, { text: "Compreendido, meu benzinho. Não enviarei mais lembretes proativos. Se precisar de mim, me chame com **!tarot** ou **'vovó'**." });
             salvarDB();
             return;
         } else {
             await sock.sendPresenceUpdate("composing", sender);
             await new Promise((resolve) => setTimeout(resolve, 1500));
-            await sock.sendMessage(sender, { text: "Vovozinha didn't quite understand, my dear. To continue the consultation, type **'1'**. To not have the consultation today, **'2'**. To no longer receive reminders, **'3'**." });
+            await sock.sendMessage(sender, { text: "Vovozinha não entendeu bem, meu benzinho. Para continuar com a consulta digite **'1'**. Para não fazer a consulta hoje **'2'**. Para não receber mais lembretes **'3'**." });
             return;
         }
     }
@@ -295,7 +294,7 @@ async function startBot() {
           await sock.sendPresenceUpdate("composing", sender);
           await new Promise((resolve) => setTimeout(resolve, 1500));
           await sock.sendMessage(sender, {
-              text: "Vovozinha has already felt your energy! Your payment is confirmed. Tell me, what's your **name** so Vovozinha can begin? 😊",
+              text: "A Vovozinha já sentiu a sua energia! Seu pagamento já está confirmado. Me diga, qual o seu **nome** para a Vovozinha começar? 😊",
           });
           delete estadoTarot[sender]; // Clear any previous state
           estadoTarot[sender] = { etapa: "aguardando_nome" }; // Start the reading flow
@@ -324,19 +323,19 @@ async function startBot() {
 
           if (pixCopiaECola) {
               await sock.sendMessage(sender, {
-                  text: `🌜 Hello, my dear... For Vovozinha to open the paths of Tarot for you, energy needs to flow. The cost of your reading is **R$ ${valorLeitura / 100},00**. ✨\n\nMake the payment via Pix Copia e Cola using the code below. As soon as the payment is confirmed, Vovozinha will feel it and let you know! 💖\n\n\`\`\`${pixCopiaECola}\`\`\`\n\n(This code is valid for a limited time. If it expires, start again with 'vovó' or '!tarot'.)`
+                  text: `🌜 Olá, meu benzinho… Para a Vovozinha abrir os caminhos do Tarô para você, a energia precisa fluir. O valor da sua tiragem é de **R$ ${valorLeitura / 100},00**. ✨\n\nFaça o pagamento via Pix Copia e Cola para o código abaixo. Assim que o pagamento for confirmado, a Vovozinha sentirá e te avisará! 💖\n\n\`\`\`${pixCopiaECola}\`\`\`\n\n(Este código é válido por um tempo limitado. Se expirar, comece novamente com 'vovó' ou '!tarot'.)`
               });
               if (qrCodeImageUrl) {
                  await sock.sendPresenceUpdate("composing", sender);
                  await new Promise((resolve) => setTimeout(resolve, 1500));
                  await sock.sendMessage(sender, {
                     image: { url: qrCodeImageUrl },
-                    caption: `Or scan the QR Code below to pay: `
+                    caption: `Ou escaneie o QR Code abaixo para pagar: `
                  });
               }
 
           } else {
-              await sock.sendMessage(sender, { text: "Vovozinha felt a blockage in the energies! I couldn't generate the Pix code right now. Please try again later. 😔" });
+              await sock.sendMessage(sender, { text: "Vovozinha sentiu um bloqueio nas energias! Não consegui gerar o código Pix agora. Por favor, tente novamente mais tarde. 😔" });
           }
           return;
       }
@@ -346,7 +345,7 @@ async function startBot() {
           await sock.sendPresenceUpdate("composing", sender);
           await new Promise((resolve) => setTimeout(resolve, 1500));
           await sock.sendMessage(sender, {
-              text: "Vovozinha is still waiting for your payment confirmation from PagBank, my dear. Have you paid? If so, please wait a little longer. If not, the Pix code is right above! ✨",
+              text: "A Vovozinha ainda está aguardando a confirmação do seu pagamento pelo PagBank, meu benzinho. Já pagou? Se sim, aguarde um pouco mais. Se não, o código Pix está logo acima! ✨",
           });
           return;
       }
