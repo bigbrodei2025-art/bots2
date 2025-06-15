@@ -20,8 +20,8 @@ const {
   gerar_leitura_tarot,
 } = require("./tarot_logic");
 
-const estadoTarot = {}; // Armazena o estado do Tarot por remetente
-const estadoEnvio = {}; // Armazena o estado do envio de mensagens em massa por remetente
+const estadoTarot = {};
+const estadoEnvio = {};
 
 // --- INÍCIO DO CÓDIGO PARA SERVIR O SITE HTML E MANTER A PORTA ATIVA NO RENDER ---
 const PORT = process.env.PORT || 3000;
@@ -71,138 +71,11 @@ async function startBot() {
     const msg =
       m.message.conversation || m.message.extendedTextMessage?.text || "";
 
-    const hoje = new Date().toISOString().slice(0, 10); // Obtém a data atual (YYYY-MM-DD)
-
-    // --- Lógica ADICIONADA: Resetar o estado do Tarot na virada do dia ---
-    // Isso garante que o bot "esqueça" a leitura do dia anterior para o usuário
-    // e responda de forma apropriada a novas mensagens como "oi".
-    if (estadoTarot[sender] && estadoTarot[sender].last_reading_date && estadoTarot[sender].last_reading_date !== hoje) {
-        console.log(`[DEBUG] Resetando estado do Tarot para ${sender}. Última leitura: ${estadoTarot[sender].last_reading_date}, Hoje: ${hoje}`);
-        delete estadoTarot[sender]; // Remove o estado salvo do dia anterior
-    }
-    // --- FIM DA LÓGICA ADICIONADA ---
-
-    // --- Comandos Gerais (se não estiver no fluxo do Tarot) ---
-    // A condição `!estadoTarot[sender]` agora funciona corretamente após o reset diário
-    if (msg.toLowerCase().includes("oi") && !estadoTarot[sender]) {
-      const audioPath = path.join(
-        __dirname,
-        "audios_vovozinha",
-        "saudacao_vovozinha.mp3"
-      );
-      if (fs.existsSync(audioPath)) {
-        await sock.sendPresenceUpdate("recording", sender);
-        await new Promise((resolve) => setTimeout(resolve, 7000));
-        await sock.sendMessage(sender, {
-          audio: { url: audioPath },
-          mimetype: "audio/mp3",
-          fileName: "saudacao_vovozinha.mp3",
-        });
-        await sock.sendPresenceUpdate("paused", sender);
-      }
-      await sock.sendMessage(sender, {
-        text: "Olá, meu benzinho! Para entrar no modo tarô da vovozinha escreva **!tarot** ou **'vovó'**. 🌙",
-      });
-      return;
-    }
-
-    if (msg.startsWith("!ping")) {
-      const tempoAtual = new Date();
-      const status = await sock.getState();
-      const responseText = `🏓 PONG! \nStatus da conexão: ${status}\nHora atual: ${tempoAtual.toLocaleString()}`;
-
-      await sock.sendMessage(sender, { text: responseText });
-      return;
-    }
-
-    // --- Comando para Iniciar Envio de Mensagens em Massa ---
-    if (msg.startsWith(`${PREFIX}enviar`)) {
-      if (estadoTarot[sender]) {
-        await sock.sendMessage(sender, {
-          text: "Você já está em uma leitura de Tarot com a Vovozinha. Digite **'cancelar'** para sair da leitura de Tarot.",
-        });
-        return;
-      }
-      estadoEnvio[sender] = { etapa: "numero" };
-      await sock.sendMessage(sender, {
-        text: "📲 Informe o número do cliente por favor! (ex: 5511999999999) ou envie o CSV.",
-      });
-      return;
-    }
-
-    // --- Comando para Iniciar a Leitura do Tarot (Etapa 1: Saudação) ---
-    // Este bloco agora pode assumir que o estado já foi limpo no início do dia,
-    // ou que é a primeira vez que o usuário interage.
-    if (msg.startsWith(`${PREFIX}tarot`) || msg.toLowerCase().includes("vovó")) {
-      // A verificação `estadoTarot[sender].last_reading_date === hoje` continua aqui
-      // para impedir múltiplas tiragens no MESMO dia.
-      if (estadoTarot[sender] && estadoTarot[sender].last_reading_date === hoje) {
-        const audioLeituraFeitaPath = path.join(
-          __dirname,
-          "audios_vovozinha",
-          "leitura_ja_feita.mp3"
-        );
-        if (fs.existsSync(audioLeituraFeitaPath)) {
-          await sock.sendPresenceUpdate("recording", sender);
-          await new Promise((resolve) => setTimeout(resolve, 7000));
-          await sock.sendMessage(sender, {
-            audio: { url: audioLeituraFeitaPath },
-            mimetype: "audio/mp3",
-            fileName: "leitura_ja_feita.mp3",
-          });
-          await sock.sendPresenceUpdate("paused", sender);
-        }
-        await sock.sendMessage(sender, {
-          text: "Vovozinha já fez uma leitura para você hoje, meu benzinho. Volte amanhã para uma nova tiragem e um novo conselho. 🌙 Tenha um dia abençoado! Limpeza Energética e Proteção Espiritual Visite https://s.shopee.com.br/BHzHi3dTW ✨",
-        });
-        return;
-      }
-
-      // Se já estiver no fluxo (mas não em encerramento/nova tiragem)
-      if (estadoTarot[sender] && estadoTarot[sender].etapa !== "leitura_concluida") {
-        await sock.sendMessage(sender, {
-          text: "Vovozinha já está te atendendo no Tarot, meu benzinho! Digite **'cancelar'** se quiser parar.",
-        });
-        return;
-      }
-
-      // Inicia ou reinicia o estado para o Tarot
-      estadoTarot[sender] = {
-        etapa: "saudacao",
-        nome: "",
-        nascimento: "",
-        nascimento_formatado: "",
-        tema: "",
-        tipo_tiragem: "",
-        pergunta_especifica: "",
-        signo: "",
-        cartas: [],
-        last_reading_date: "", // Será preenchido após a conclusão da leitura
-      };
-
-      const audioSaudacaoPath = path.join(
-        __dirname,
-        "audios_vovozinha",
-        "saudacao_vovozinha.mp3"
-      );
-      if (fs.existsSync(audioSaudacaoPath)) {
-        await sock.sendPresenceUpdate("recording", sender);
-        await new Promise((resolve) => setTimeout(resolve, 7000));
-        await sock.sendMessage(sender, {
-          audio: { url: audioSaudacaoPath },
-          mimetype: "audio/mp3",
-          fileName: "saudacao_vovozinha.mp3",
-        });
-        await sock.sendPresenceUpdate("paused", sender);
-      }
-      await sock.sendMessage(sender, {
-        text: "🌜 Olá, meu benzinho… Eu sou a **Vovozinha do Tarô** 🌿\n\nCarrego muitos anos nas costas… e muitos mistérios nas cartas.\n\nQuer que a vovó dê uma espiadinha no seu destino?\n\n1️⃣ **Sim, quero uma tiragem**\n2️⃣ **Não agora, vovó**",
-      });
-      return;
-    }
+    // Normalize the message for checks
+    const lowerCaseMsg = msg.toLowerCase().trim();
 
     // --- Comando para Cancelar o Fluxo do Tarot ---
-    if (msg.toLowerCase() === "cancelar" && estadoTarot[sender]) {
+    if (lowerCaseMsg === "cancelar" && estadoTarot[sender]) {
       delete estadoTarot[sender];
       const audioCancelamentoPath = path.join(
         __dirname,
@@ -225,13 +98,105 @@ async function startBot() {
       return;
     }
 
+    // --- Comandos Gerais (se não estiver no fluxo do Tarot) ---
+    if (lowerCaseMsg.startsWith("!ping")) {
+      const tempoAtual = new Date();
+      const status = await sock.getState();
+      const responseText = `🏓 PONG! \nStatus da conexão: ${status}\nHora atual: ${tempoAtual.toLocaleString()}`;
+
+      await sock.sendMessage(sender, { text: responseText });
+      return;
+    }
+
+    // --- Comando para Iniciar Envio de Mensagens em Massa ---
+    if (lowerCaseMsg.startsWith(`${PREFIX}enviar`)) {
+      if (estadoTarot[sender]) {
+        await sock.sendMessage(sender, {
+          text: "Você já está em uma leitura de Tarot com a Vovozinha. Digite **'cancelar'** para sair da leitura de Tarot.",
+        });
+        return;
+      }
+      estadoEnvio[sender] = { etapa: "numero" };
+      await sock.sendMessage(sender, {
+        text: "📲 Informe o número do cliente por favor! (ex: 5511999999999) ou envie o CSV.",
+      });
+      return;
+    }
+
+    // --- Inicia o fluxo do Tarot automaticamente ao receber "oi", "olá", ou se não estiver em outro fluxo ---
+    // Only proceed if not already in the middle of a tarot session
+    if (!estadoTarot[sender]) {
+      const isGreeting = lowerCaseMsg.includes("oi") || lowerCaseMsg.includes("olá");
+      const hoje = new Date().toISOString().slice(0, 10);
+
+      // Check daily limit if a previous reading exists for today
+      if (estadoTarot[sender] && estadoTarot[sender].last_reading_date === hoje) {
+        const audioLeituraFeitaPath = path.join(
+          __dirname,
+          "audios_vovozinha",
+          "leitura_ja_feita.mp3"
+        );
+        if (fs.existsSync(audioLeituraFeitaPath)) {
+          await sock.sendPresenceUpdate("recording", sender);
+          await new Promise((resolve) => setTimeout(resolve, 7000));
+          await sock.sendMessage(sender, {
+            audio: { url: audioLeituraFeitaPath },
+            mimetype: "audio/mp3",
+            fileName: "leitura_ja_feita.mp3",
+          });
+          await sock.sendPresenceUpdate("paused", sender);
+        }
+        await sock.sendMessage(sender, {
+          text: "Vovozinha já fez uma leitura para você hoje, meu benzinho. Volte amanhã para uma nova tiragem e um novo conselho. 🌙 Tenha um dia abençoado! Limpeza Energética e Proteção Espiritual Visite https://s.shopee.com.br/BHzHi3dTW ✨",
+        });
+        return;
+      }
+
+      // If it's a greeting and not in a tarot session, start the tarot flow
+      if (isGreeting || !estadoTarot[sender]) { // The !estadoTarot[sender] part makes it the default if no other command is matched
+        estadoTarot[sender] = {
+          etapa: "saudacao",
+          nome: "",
+          nascimento: "",
+          nascimento_formatado: "",
+          tema: "",
+          tipo_tiragem: "",
+          pergunta_especifica: "",
+          signo: "",
+          cartas: [],
+          last_reading_date: "",
+        };
+
+        const audioSaudacaoPath = path.join(
+          __dirname,
+          "audios_vovozinha",
+          "saudacao_vovozinha.mp3"
+        );
+        if (fs.existsSync(audioSaudacaoPath)) {
+          await sock.sendPresenceUpdate("recording", sender);
+          await new Promise((resolve) => setTimeout(resolve, 7000));
+          await sock.sendMessage(sender, {
+            audio: { url: audioSaudacaoPath },
+            mimetype: "audio/mp3",
+            fileName: "saudacao_vovozinha.mp3",
+          });
+          await sock.sendPresenceUpdate("paused", sender);
+        }
+        await sock.sendMessage(sender, {
+          text: "🌜 Olá, meu benzinho… Eu sou a **Vovozinha do Tarô** 🌿\n\nCarrego muitos anos nas costas… e muitos mistérios nas cartas.\n\nQuer que a vovó dê uma espiadinha no seu destino?\n\n1️⃣ **Sim, quero uma tiragem**\n2️⃣ **Não agora, vovó**",
+        });
+        return; // Important: return here to prevent further processing as a non-tarot message
+      }
+    }
+
+
     // --- Processamento das Etapas do Tarot ---
     if (estadoTarot[sender]) {
       const estado = estadoTarot[sender];
 
       switch (estado.etapa) {
         case "saudacao":
-          if (msg.trim() === "1") {
+          if (lowerCaseMsg === "1") {
             estado.etapa = "aguardando_nome";
             const audioPedeNomePath = path.join(
               __dirname,
@@ -251,7 +216,7 @@ async function startBot() {
             await sock.sendMessage(sender, {
               text: "Ah, que bom! Me diga, meu benzinho, qual o seu **nome** para a Vovozinha começar? 😊",
             });
-          } else if (msg.trim() === "2") {
+          } else if (lowerCaseMsg === "2") {
             await sock.sendMessage(sender, {
               text: "Tudo bem, meu benzinho. Quando precisar, a Vovozinha estará aqui. Volte sempre! 💖",
             });
@@ -326,7 +291,7 @@ async function startBot() {
           break;
 
         case "confirmando_nascimento":
-          const resposta_confirmacao = msg.trim().toLowerCase();
+          const resposta_confirmacao = lowerCaseMsg;
           if (resposta_confirmacao === "sim") {
             estado.etapa = "aguardando_tema";
             const audioPedeTemaPath = path.join(
@@ -367,7 +332,7 @@ async function startBot() {
             "4": "Espírito e alma",
             "5": "Pergunta Específica",
           };
-          const temaEscolhidoTexto = temasOpcoes[msg.trim()];
+          const temaEscolhidoTexto = temasOpcoes[lowerCaseMsg];
 
           if (temaEscolhidoTexto) {
             estado.tema = temaEscolhidoTexto;
@@ -433,7 +398,7 @@ async function startBot() {
             "2": "tres",
             "3": "completa",
           };
-          const tipoTiragemEscolhido = tiposTiragem[msg.trim()];
+          const tipoTiragemEscolhido = tiposTiragem[lowerCaseMsg];
 
           if (tipoTiragemEscolhido) {
             estado.tipo_tiragem = tipoTiragemEscolhido;
@@ -452,8 +417,7 @@ async function startBot() {
 
             estado.cartas = cartas_selecionadas;
             estado.etapa = "leitura_concluida";
-            // A data da última leitura é salva aqui, após a conclusão
-            estado.last_reading_date = hoje; // Usa a variável 'hoje' calculada no início
+            estado.last_reading_date = new Date().toISOString().slice(0, 10);
 
             await sock.sendMessage(sender, { text: resultado });
             const audioDespedidaDiariaPath = path.join(
@@ -482,8 +446,6 @@ async function startBot() {
           break;
 
         case "leitura_concluida":
-          // Este caso só será atingido se o estado NÃO foi resetado na virada do dia
-          // (ou seja, se a mensagem foi no MESMO dia da leitura).
           const audioLeituraConcluidaPath = path.join(
             __dirname,
             "audios_vovozinha",
@@ -506,7 +468,7 @@ async function startBot() {
 
         default:
           await sock.sendMessage(sender, {
-            text: "Vovozinha está um pouco confusa, meu benzinho. Parece que a leitura foi interrompida. Por favor, digite **'cancelar'** para recomeçar ou **'vovó'** para tentar uma nova leitura (se for outro dia). 🤷‍♀️",
+            text: "Vovozinha está um pouco confusa, meu benzinho. Parece que a leitura foi interrompida. Por favor, digite **'cancelar'** para recomeçar ou **'oi'** para tentar uma nova leitura (se for outro dia). 🤷‍♀️",
           });
           delete estadoTarot[sender];
           break;
@@ -550,7 +512,7 @@ async function startBot() {
       }
 
       if (estado.etapa === "midia") {
-        if (msg.toLowerCase() === "pular") {
+        if (lowerCaseMsg === "pular") {
           await enviarMensagens(sock, estado.numeros, estado.mensagem);
         } else if (
           m.message.imageMessage ||
