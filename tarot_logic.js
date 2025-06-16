@@ -101,7 +101,7 @@ async function gerar_leitura_tarot(nome, nascimento, tema, tipo_tiragem, pergunt
             default:
                 num_cartas = 3;
                 tiragem_texto = "three cards (Past, Present, and Future)";
-                posicoes_cartas = ["Past", "Present", "Future"];
+                posicoes_cartas = ["Past", "Present", "Futuro"]; // Corrigido aqui (Future para Futuro)
                 break;
         }
 
@@ -161,23 +161,24 @@ Remember not to add any other phrases or introductions that are not within this 
             history: [
                 {
                     role: "user",
-                    parts: [{ text: prompt_para_gemini }],
+                    parts: [{ text: prompt_para_gemini }], // O prompt principal como a primeira mensagem do usuário
                 },
             ],
             generationConfig: {
-                temperature: 0.9, // More creativity for deep interpretations
-                maxOutputTokens: 1000, // Increase limit for full, detailed response
+                temperature: 0.9, // Mais criatividade para interpretações profundas
+                maxOutputTokens: 1000, // Aumenta o limite para uma resposta completa e detalhada
             },
         });
 
-        const result = await chat.sendMessage(prompt_para_gemini);
+        // Envia uma mensagem para "ativar" a geração da leitura, já que o prompt principal está no histórico.
+        const result = await chat.sendMessage({ text: "Por favor, gere a leitura de tarô completa agora com base nas informações fornecidas." });
         const response = await result.response;
         const resultado_da_leitura = response.text();
 
-        // Initial history for post-reading conversation should be the complete first interaction
+        // O histórico inicial para a conversa pós-leitura deve ser a interação completa
         const historico_inicial = [
-            { role: "user", parts: [{ text: prompt_para_gemini }] },
-            { role: "model", parts: [{ text: resultado_da_leitura }] }
+            { role: "user", parts: [{ text: prompt_para_gemini }] }, // Mantém o prompt original como o contexto base
+            { role: "model", parts: [{ text: resultado_da_leitura }] } // E a resposta do modelo como a leitura
         ];
 
         return {
@@ -190,7 +191,7 @@ Remember not to add any other phrases or introductions that are not within this 
     } catch (e) {
         console.error("❌ Error in gerar_leitura_tarot (Gemini):", e);
         return {
-            resultado: `Oh, my dear... There was a problem in the mystical currents and Vovozinha couldn't pull your cards right now. Please try again later, my angel. Error: ${e.message}`,
+            resultado: `Oh, meu benzinho... Houve um problema nas correntes místicas e a Vovozinha não conseguiu puxar suas cartas agora. Por favor, tente novamente mais tarde, meu anjo. Erro: ${e.message}`,
             cartas_selecionadas: [],
             signo: "",
             historico_inicial: []
@@ -202,54 +203,34 @@ Remember not to add any other phrases or introductions that are not within this 
 async function conversar_com_tarot(historico, nova_pergunta_usuario, nome, tema, signo, cartas, pergunta_original = "") {
     try {
         if (!nome || !tema || !signo || cartas.length === 0) {
-            return { historico: historico, resposta: "Please, do an initial reading before conversing more with Vovozinha, my dear. 💖" };
+            return { historico: historico, resposta: "Por favor, faça uma leitura inicial antes de conversar mais com a Vovozinha, meu benzinho. 💖" };
         }
 
-        // Reinforce Vovozinha's persona and current reading context for each conversation turn.
-        const persona_prompt = `You are **Vovozinha do Tarô**, a super powerful, mystical, wise, and welcoming fortune teller. Your answers are **always short, direct, and very astute**, with a poetic and affectionate tone ("my dear," "my flower"). You interpret the essence of the question and respond with clarity, using thematic emojis (🃏🌙✨🕯️🌿🌸🌞🧿🍵).
-Continue the conversation based on the tarot reading already done for client ${nome} (Sign: ${signo}), on the theme ${tema}, with cards: ${cartas.map(c => `🃏 ${c}`).join(', ')}.`;
-
-        if (pergunta_original) {
-            persona_prompt += `\nRemember the initial question: "${pergunta_original}".`;
-        }
-        
-        persona_prompt += `\nWhen answering the client's new question, be brief, incisive, and, if possible, ask a new question to deepen understanding or invite reflection, always maintaining a spiritual and mystical focus.`;
-
-        // Now, we build the history for Gemini from scratch each time,
-        // adding the persona and the new interaction.
-        let chatHistoryGemini = [
-            { role: "user", parts: [{ text: persona_prompt }] }, // Define persona and context
-            ...historico.slice(1), // Add existing history, except the first system prompt
-            { role: "user", parts: [{ text: nova_pergunta_usuario }] } // Add the new user question
-        ];
-
-        // Start or continue chat with complete history
+        // A persona e o contexto inicial já estão no 'historico' recebido.
+        // A Gemini manterá o contexto da persona ao longo da conversa.
         const chat = model.startChat({
-            history: chatHistoryGemini, // Use history directly
+            history: historico, // Usa o histórico completo passado
             generationConfig: {
                 temperature: 0.8,
-                maxOutputTokens: 150, // Shorter responses for conversation
+                maxOutputTokens: 150, // Respostas mais curtas para a conversa
             },
         });
 
-        // Send the new user question. No separate sendMessage for 'nova_pergunta_usuario' needed
-        // because it's already in the history we passed to startChat.
-        // sendMessage here will process the history and generate the model's next response.
-        const result = await chat.sendMessage({ text: ' ' }); // Send empty text, as question is already in history
+        // Envia a nova pergunta do usuário.
+        const result = await chat.sendMessage(nova_pergunta_usuario);
         const response = await result.response;
         const bot_resposta = response.text();
 
-        // Now, update original history (which will be stored in estadoTarot[sender].historico_chat)
-        // with the bot's response.
-        let novoHistoricoCompleto = [...historico]; // Create a copy of original history
-        novoHistoricoCompleto.push({ role: "user", parts: [{ text: nova_pergunta_usuario }] }); // Add user question
-        novoHistoricoCompleto.push({ role: "model", parts: [{ text: bot_resposta }] }); // Add bot response
+        // Atualiza o histórico com a nova pergunta do usuário e a resposta do bot
+        // IMPORTANTE: Modifica o 'historico' passado, que é uma referência.
+        historico.push({ role: "user", parts: [{ text: nova_pergunta_usuario }] });
+        historico.push({ role: "model", parts: [{ text: bot_resposta }] });
 
-        return { historico: novoHistoricoCompleto, resposta: bot_resposta };
+        return { historico: historico, resposta: bot_resposta };
 
     } catch (e) {
         console.error("❌ Error in conversar_com_tarot (Gemini):", e);
-        return { historico: historico, resposta: `Vovozinha is a little confused now, my dear. I couldn't understand your question. The veil is thick... Please try again later. 😔` };
+        return { historico: historico, resposta: `A Vovozinha está um pouco confusa agora, meu benzinho. Não consegui entender sua pergunta. O véu está espesso... Por favor, tente novamente mais tarde. 😔` };
     }
 }
 
