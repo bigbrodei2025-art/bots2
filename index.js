@@ -21,9 +21,8 @@ const { PREFIX, ADMIN_JIDS } = require("./config");
 // POR FAVOR, AO FAZER O DEPLOY NO RENDER, COLOQUE ESTE TOKEN E A URL DO WEBHOOK
 // EM VARIÁVEIS DE AMBIENTE DO RENDER (ex: MERCADOPAGO_ACCESS_TOKEN e MERCADOPAGO_WEBHOOK_URL)
 // NÃO OS DEIXE DIRETAMENTE NO CÓDIGO!
-const MERCADOPAGO_ACCESS_TOKEN = "APP_USR-6518621016085858-061522-c8158fa3e2da7d2bddbc37567c159410-24855470"; 
-// >>> URL ATUALIZADA PARA RENDER <<<
-const MERCADOPAGO_WEBHOOK_URL = "https://vovozinhadotaro.onrender.com/webhook-mercadopago"; 
+const MERCADOPAGO_ACCESS_TOKEN = "APP_USR-6518621016085858-061522-c8158fa3e2da7d2bddbc37567c159410-24855470"; // <<< COLE SEU ACCESS TOKEN AQUI!
+const MERCADOPAGO_WEBHOOK_URL = "https://vovozinhadotaro.onrender.com/webhook-mercadopago"; // <<< COLE SUA URL DO RENDER AQUI!
 // --- FIM DA SEÇÃO DE CREDENCIAIS ---
 
 // As funções do seu tarot_logic.js continuam sendo importadas
@@ -65,6 +64,7 @@ function carregarDB() {
 
 function salvarDB() {
     try {
+        // CORRIGIDO: nome da variável de usuariosTarosDB para usuariosTarotDB
         fs.writeFileSync(DB_FILE_PATH, JSON.stringify(usuariosTarotDB, null, 2), 'utf8'); 
         console.log("✅ User DB saved successfully.");
     } catch (e) {
@@ -85,11 +85,10 @@ const LONG_TIMEOUT_MINUTES = 30; // Tempo de expiração final
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json()); // Middleware to parse JSON request bodies
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true })); // Good practice for webhooks, though MP often sends JSON
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// >>> URL ATUALIZADA AQUI TAMBÉM <<<
 app.get('/', (req, res) => {
     res.send('<h1>Vovozinha Bot: Active and Ready!</h1><p>Acesse o WhatsApp para interagir com o bot. Esta página indica que a aplicação está rodando em <a href="https://vovozinhadotaro.onrender.com/">https://vovozinhadotaro.onrender.com/</a></p>');
 });
@@ -805,13 +804,12 @@ async function startBot() {
                         });
 
                         // --- FINALIZA O CICLO DA LEITURA ---
-                        // Requer novo pagamento/acesso para a próxima tiragem (se não for admin)
-                        if (!usuariosTarotDB[sender].is_admin_granted_access) { // Só reseta se não for acesso admin
+                        if (!usuariosTarotDB[sender].is_admin_granted_access) { 
                             usuariosTarotDB[sender].pagamento_confirmado_para_leitura = false; 
                             usuariosTarotDB[sender].aguardando_pagamento_para_leitura = false; 
                         }
-                        delete estadoTarot[sender]; // Limpa completamente o estado da sessão de tarô para o usuário
-                        salvarDB(); // Salva essa mudança no DB
+                        delete estadoTarot[sender]; 
+                        salvarDB(); 
                         // --- FIM DO NOVO ---
 
                     } else {
@@ -823,13 +821,13 @@ async function startBot() {
                     }
                     break;
 
-                default: // Pega qualquer input inesperado e limpa o estado, ou responde confusão
+                default: 
                     await sock.sendPresenceUpdate("composing", sender);
                     await new Promise((resolve) => setTimeout(resolve, 1500));
                     await sock.sendMessage(sender, {
                         text: "A Vovozinha está um pouco confusa, meu benzinho. Parece que o fluxo de leitura foi interrompido ou já foi concluído. Por favor, diga **'vovó'** ou **'!tarot'** para iniciar uma nova leitura. 🤷‍♀️",
                     });
-                    delete estadoTarot[sender]; // Garante que o estado seja limpo em caso de confusão
+                    delete estadoTarot[sender]; 
                     break;
             }
             return;
