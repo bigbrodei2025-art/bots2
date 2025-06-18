@@ -26,10 +26,10 @@ const { PREFIX, ADMIN_JIDS } = require("./config");
 // ESTE É O SEU NOVO ACCESS TOKEN DO MERCADO PAGO:
 <<<<<<< HEAD
 const MERCADOPAGO_ACCESS_TOKEN = "APP_USR-6518621016085858-061522-c8158fa3e2da7d2bddbc37567c159410-24855470";
-const MERCADOPAGO_WEBHOOK_URL = "https://cuddly-space-meme-4jqx5v7j4v94fpj6-3000.app.github.dev/webhook-mercadopago"; // Sua URL do Codespaces
+const MERCADOPAGO_WEBHOOK_URL = "https://vovozinhadotaro.onrender.com/webhook-mercadopago"; // Sua URL do Codespaces
 =======
 const MERCADOPAGO_ACCESS_TOKEN = "APP_USR-6518621016085858-061522-c8158fa3e2da7d2bddbc37567c159410-24855470"; 
-const MERCADOPAGO_WEBHOOK_URL = "https://cuddly-space-meme-4jqx5v7j4v94fpj6-3000.app.github.dev/webhook-mercadopago"; 
+const MERCADOPAGO_WEBHOOK_URL = "https://vovozinhadotaro.onrender.com/webhook-mercadopago"; 
 >>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
 // --- FIM DA SEÇÃO DE CREDENCIAIS ---
 
