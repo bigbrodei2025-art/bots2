@@ -91,7 +91,7 @@ async function gerar_leitura_tarot(nome, nascimento, tema, tipo_tiragem, pergunt
             case 'tres':
                 num_cartas = 3;
                 tiragem_texto = "três cartas (Passado, Presente e Futuro)";
-                posicoes_cartas = ["Passado", "Presente", "Futuro"];
+                posicoes_cartas = ["Passado", "Presente", "Futuro"]; 
                 break;
             case 'completa':
                 num_cartas = 5;
@@ -100,13 +100,8 @@ async function gerar_leitura_tarot(nome, nascimento, tema, tipo_tiragem, pergunt
                 break;
             default:
                 num_cartas = 3;
-<<<<<<< HEAD
-                tiragem_texto = "three cards (Past, Present, and Future)";
-                posicoes_cartas = ["Past", "Present", "Futuro"]; // Corrigido aqui (Future para Futuro)
-=======
                 tiragem_texto = "três cartas (Passado, Presente e Futuro)";
                 posicoes_cartas = ["Passado", "Presente", "Futuro"];
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                 break;
         }
 
@@ -133,8 +128,8 @@ async function gerar_leitura_tarot(nome, nascimento, tema, tipo_tiragem, pergunt
 Siga rigorosamente a seguinte estrutura para a resposta, usando markdown para títulos e subtítulos:
 
 ---
-Nome: ${nome}
-Data de Nascimento: ${nascimento_formatado_br}
+Nome:${nome}
+Data de Nascimento:${nascimento_formatado_br}
 Signo Solar: ${signo}
 
 ---
@@ -176,11 +171,7 @@ Lembre-se de não adicionar outras frases ou introduções que não estejam dent
         });
 
         // Envia uma mensagem para "ativar" a geração da leitura, já que o prompt principal está no histórico.
-<<<<<<< HEAD
-        const result = await chat.sendMessage({ text: "Por favor, gere a leitura de tarô completa agora com base nas informações fornecidas." });
-=======
         const result = await chat.sendMessage([{ text: "Por favor, gere a leitura de tarô completa agora com base nas informações fornecidas." }]); 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
         const response = await result.response;
         const resultado_da_leitura = response.text();
 
@@ -238,11 +229,7 @@ async function conversar_com_tarot(historico, nova_pergunta_usuario, nome, tema,
         return { historico: historico, resposta: bot_resposta };
 
     } catch (e) {
-<<<<<<< HEAD
-        console.error("❌ Error in conversar_com_tarot (Gemini):", e);
-=======
         console.error("❌ Erro em conversar_com_tarot (Gemini):", e);
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
         return { historico: historico, resposta: `A Vovozinha está um pouco confusa agora, meu benzinho. Não consegui entender sua pergunta. O véu está espesso... Por favor, tente novamente mais tarde. 😔` };
     }
 }
