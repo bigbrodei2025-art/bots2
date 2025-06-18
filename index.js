@@ -15,22 +15,15 @@ const express = require('express');
 const app = express();
 const axios = require('axios'); // Import axios for HTTP requests
 
-<<<<<<< HEAD
-const { PREFIX } = require("./config"); // Assume PREFIX ainda está em config.js
-=======
 const { PREFIX, ADMIN_JIDS } = require("./config"); 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
 
 // --- ATENÇÃO: CREDENCIAIS HARDCODED! ISSO NÃO É SEGURO PARA PRODUÇÃO ---
-// Por favor, considere usar variáveis de ambiente (.env) em um ambiente real.
-// ESTE É O SEU NOVO ACCESS TOKEN DO MERCADO PAGO:
-<<<<<<< HEAD
-const MERCADOPAGO_ACCESS_TOKEN = "APP_USR-6518621016085858-061522-c8158fa3e2da7d2bddbc37567c159410-24855470";
-const MERCADOPAGO_WEBHOOK_URL = "https://vovozinhadotaro.onrender.com/webhook-mercadopago"; // Sua URL do Codespaces
-=======
+// POR FAVOR, AO FAZER O DEPLOY NO RENDER, COLOQUE ESTE TOKEN E A URL DO WEBHOOK
+// EM VARIÁVEIS DE AMBIENTE DO RENDER (ex: MERCADOPAGO_ACCESS_TOKEN e MERCADOPAGO_WEBHOOK_URL)
+// NÃO OS DEIXE DIRETAMENTE NO CÓDIGO!
 const MERCADOPAGO_ACCESS_TOKEN = "APP_USR-6518621016085858-061522-c8158fa3e2da7d2bddbc37567c159410-24855470"; 
+// >>> URL ATUALIZADA PARA RENDER <<<
 const MERCADOPAGO_WEBHOOK_URL = "https://vovozinhadotaro.onrender.com/webhook-mercadopago"; 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
 // --- FIM DA SEÇÃO DE CREDENCIAIS ---
 
 // As funções do seu tarot_logic.js continuam sendo importadas
@@ -42,10 +35,7 @@ const {
 } = require("./tarot_logic");
 
 // --- Função Simples para Gerar UUID v4 (para X-Idempotency-Key) ---
-<<<<<<< HEAD
 // Em um ambiente de produção real, você usaria uma biblioteca como 'uuid'
-=======
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
 function generateUUIDv4() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
@@ -75,10 +65,6 @@ function carregarDB() {
 
 function salvarDB() {
     try {
-<<<<<<< HEAD
-        // CORRIGIDO: nome da variável de usuariosTarosDB para usuariosTarotDB
-=======
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
         fs.writeFileSync(DB_FILE_PATH, JSON.stringify(usuariosTarotDB, null, 2), 'utf8'); 
         console.log("✅ User DB saved successfully.");
     } catch (e) {
@@ -93,35 +79,21 @@ const estadoEnvio = {}; // Stores mass message sending state per sender
 
 // --- Objeto para guardar os timers de consulta automática de pagamento ---
 const paymentTimers = {};
-const MAX_RETRY_ATTEMPTS = 2; // <<<<< RE-ADICIONADO! (0, 1, 2 = 3 tentativas no total)
-const LONG_TIMEOUT_MINUTES = 40; // Tempo de expiração final
+const MAX_RETRY_ATTEMPTS = 2; // (0, 1, 2 = 3 tentativas no total)
+const LONG_TIMEOUT_MINUTES = 30; // Tempo de expiração final
 
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json()); // Middleware to parse JSON request bodies
-<<<<<<< HEAD
-app.use(express.urlencoded({ extended: true })); // Good practice for webhooks, though MP often sends JSON
-=======
 app.use(express.urlencoded({ extended: true }));
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// >>> URL ATUALIZADA AQUI TAMBÉM <<<
 app.get('/', (req, res) => {
-    res.send('<h1>Vovozinha Bot: Active and Ready!</h1><p>Access WhatsApp to interact with the bot. This is just a status indicator.</p>');
+    res.send('<h1>Vovozinha Bot: Active and Ready!</h1><p>Acesse o WhatsApp para interagir com o bot. Esta página indica que a aplicação está rodando em <a href="https://vovozinhadotaro.onrender.com/">https://vovozinhadotaro.onrender.com/</a></p>');
 });
 
-<<<<<<< HEAD
-// --- **WEBHOOK DO MERCADO PAGO SIMPLIFICADO PARA TESTE DE CONEXÃO** ---
-// Tudo que ele faz é logar e responder 200 OK.
-// A lógica real do webhook está TEMPORARIAMENTE comentada para depuração do 401.
-app.post('/webhook-mercadopago', async (req, res) => {
-    console.log('✨ Webhook do Mercado Pago RECEBIDO (VERSÃO SIMPLIFICADA)!');
-    console.log('Corpo da Requisição:', JSON.stringify(req.body, null, 2));
-    
-    // Responde 200 OK imediatamente para ver se o Mercado Pago aceita a conexão.
-    return res.status(200).send('OK'); 
-=======
 // --- Nova Função: Checar Status de Pagamento no Mercado Pago e Liberar Leitura ---
 // Adicionado 'source' para diferenciar a origem da chamada (webhook, manual, retry_short, timer_long)
 async function checkMercadoPagoPaymentStatus(paymentId, jid, source = 'webhook') { 
@@ -228,16 +200,10 @@ app.post('/webhook-mercadopago', async (req, res) => {
         console.log('⚠️ Webhook Mercado Pago: Tipo de notificação não suportado ou ID do recurso ausente.');
         return res.status(400).send('Bad Request: Payload de webhook MP não reconhecido.');
     }
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
 });
-// --- **FIM DO WEBHOOK SIMPLIFICADO** ---
 
 
-<<<<<<< HEAD
-let sock; // Declara sock globalmente para ser acessível pelas rotas do webhook
-=======
 let sock; 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState(
@@ -273,19 +239,6 @@ async function startBot() {
         try {
             const paymentsApiUrl = 'https://api.mercadopago.com/v1/payments';
 
-<<<<<<< HEAD
-            // Verificações de credenciais (já hardcoded, mas a verificação é boa)
-            if (!MERCADOPAGO_ACCESS_TOKEN) {
-                console.error("❌ MERCADOPAGO_ACCESS_TOKEN não está definido!");
-                return { pixCopiaECola: null, qrCodeBase64: null };
-            }
-            if (!MERCADOPAGO_WEBHOOK_URL) {
-                console.error("❌ MERCADOPAGO_WEBHOOK_URL não está definido!");
-                return { pixCopiaECola: null, qrCodeBase64: null };
-            }
-
-            // Gerar o X-Idempotency-Key
-=======
             if (!MERCADOPAGO_ACCESS_TOKEN) {
                 console.error("❌ MERCADOPAGO_ACCESS_TOKEN não está definido!");
                 return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
@@ -295,22 +248,11 @@ async function startBot() {
                 return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
             }
 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
             const idempotencyKey = generateUUIDv4();
 
             const headers = {
                 'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
                 'Content-Type': 'application/json',
-<<<<<<< HEAD
-                'X-Idempotency-Key': idempotencyKey // NOVO CABEÇALHO AQUI!
-            };
-
-            const body = {
-                transaction_amount: amountInCents / 100, // Mercado Pago espera valor em BRL (float), não centavos
-                description: "Leitura de Tarô da Vovozinha",
-                payment_method_id: "pix",
-                external_reference: clientPhoneNumber, // O número de telefone do cliente como referência externa
-=======
                 'X-Idempotency-Key': idempotencyKey 
             };
 
@@ -319,7 +261,6 @@ async function startBot() {
                 description: "Leitura de Tarô da Vovozinha",
                 payment_method_id: "pix",
                 external_reference: clientPhoneNumber,
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                 payer: {
                     email: `vovozinha_client_${clientPhoneNumber}@example.com`,
                 },
@@ -335,27 +276,16 @@ async function startBot() {
                 return {
                     pixCopiaECola: qrCodeData.qr_code,
                     qrCodeBase64: qrCodeData.qr_code_base64,
-<<<<<<< HEAD
-=======
                     paymentId: response.data.id // Retorna o ID do pagamento gerado pelo Mercado Pago
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                 };
             }
 
             console.error("❌ Resposta inesperada da API /payments do Mercado Pago:", JSON.stringify(response.data, null, 2));
-<<<<<<< HEAD
-            return { pixCopiaECola: null, qrCodeBase64: null };
-
-        } catch (error) {
-            console.error("❌ Erro ao criar cobrança Pix com Mercado Pago:", error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
-            return { pixCopiaECola: null, qrCodeBase64: null };
-=======
             return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
 
         } catch (error) {
             console.error("❌ Erro ao criar cobrança Pix com Mercado Pago:", error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
             return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
         }
     }
 
@@ -368,63 +298,11 @@ async function startBot() {
         const msg =
             m.message.conversation || m.message.extendedTextMessage?.text || "";
 
-<<<<<<< HEAD
-=======
         const mensagemMinuscula = msg.toLowerCase(); 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
         const hoje = new Date().toISOString().slice(0, 10);
 
         // --- Garante que o objeto do usuário existe no início ---
         if (!usuariosTarotDB[sender]) {
-<<<<<<< HEAD
-            usuariosTarotDB[sender] = {};
-        }
-        // -----------------------------------------------------
-
-        // --- Lógica para "Olá/Oi" para iniciar o modo Tarô ou fluxo de Pagamento ---
-        const saudacoes = ["oi", "olá", "ola"];
-        const mensagemMinuscula = msg.toLowerCase();
-        const isSaudacao = saudacoes.some(s => mensagemMinuscula.includes(s));
-
-        // Se uma saudação ou comando de tarô for recebido, e o bot não estiver já em um fluxo de tarô
-        if ((msg.startsWith(`${PREFIX}tarot`) || msg.toLowerCase().includes("vovó") || isSaudacao) && !estadoTarot[sender]) {
-            // Verifica se o pagamento já está confirmado para este JID (via webhook Mercado Pago)
-            if (usuariosTarotDB[sender].pagamento_confirmado_para_leitura === true) {
-                await sock.sendPresenceUpdate("composing", sender);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sock.sendMessage(sender, {
-                    text: "A Vovozinha já sentiu a sua energia! Seu pagamento já está confirmado. Me diga, qual o seu **nome** para a Vovozinha começar? 😊",
-                });
-                delete estadoTarot[sender];
-                estadoTarot[sender] = { etapa: "aguardando_nome" };
-                salvarDB();
-                return;
-            }
-
-            // Se o pagamento NÃO estiver confirmado, propõe a leitura de 1 centavo
-            if (!usuariosTarotDB[sender].aguardando_pagamento_para_leitura) {
-                estadoTarot[sender] = { etapa: "aguardando_confirmacao_1_centavo" };
-                await sock.sendPresenceUpdate("composing", sender);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sock.sendMessage(sender, {
-                    text: "Olá, meu benzinho! Quer fazer uma tiragem de Tarô completa com a Vovozinha por apenas **1 centavo** para sentir a energia das cartas? (Sim/Não) ✨",
-                });
-                return;
-            }
-
-            // Se o usuário já estiver aguardando o pagamento e enviar outra mensagem
-            if (estadoTarot[sender] && estadoTarot[sender].etapa === "aguardando_pagamento_mercadopago") {
-                await sock.sendPresenceUpdate("composing", sender);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sock.sendMessage(sender, {
-                    text: "A Vovozinha ainda está aguardando a confirmação do seu pagamento pelo Mercado Pago, meu benzinho. Já pagou? Se sim, por favor, aguarde mais um pouquinho. Se não, o código Pix está logo acima! ✨",
-                });
-                return;
-            }
-        }
-
-
-=======
             usuariosTarotDB[sender] = { is_admin_granted_access: false }; 
         }
         // NOVO: Se o remetente é um admin, garante que ele mesmo tenha acesso liberado
@@ -576,7 +454,6 @@ async function startBot() {
         }
 
         // --- CONTINUAÇÃO DA LÓGICA DO SEU BOT ---
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
         if (msg.startsWith("!ping")) {
             const tempoAtual = new Date();
             const status = await sock.getState();
@@ -605,13 +482,8 @@ async function startBot() {
             return;
         }
 
-<<<<<<< HEAD
-        if (msg.toLowerCase() === "cancelar" && estadoTarot[sender]) {
-            delete estadoTarot[sender];
-=======
         if (msg.toLowerCase() === "cancelar" && estadoTarot[sender]) { 
             delete estadoTarot[sender]; 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
             await sock.sendPresenceUpdate("composing", sender);
             await new Promise((resolve) => setTimeout(resolve, 1500));
             await sock.sendMessage(sender, {
@@ -630,23 +502,6 @@ async function startBot() {
                         const senderPhoneNumber = sender.split('@')[0].replace(/\D/g, '');
                         const valorLeitura = 1; // 1 centavo
 
-<<<<<<< HEAD
-                        estadoTarot[sender] = {
-                            etapa: "aguardando_pagamento_mercadopago",
-                            external_reference_gerado: senderPhoneNumber
-                        };
-                        usuariosTarotDB[sender].aguardando_pagamento_para_leitura = true;
-                        usuariosTarotDB[sender].ultima_solicitacao_pagamento_timestamp = new Date().toISOString();
-                        usuariosTarotDB[sender].external_reference_atual = estadoTarot[sender].external_reference_gerado;
-                        salvarDB();
-
-                        await sock.sendPresenceUpdate("composing", sender);
-                        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-                        const { pixCopiaECola, qrCodeBase64 } = await gerarCobrancaPixMercadoPago(valorLeitura, senderPhoneNumber);
-
-                        if (pixCopiaECola) {
-=======
                         const { pixCopiaECola, qrCodeBase64, paymentId } = await gerarCobrancaPixMercadoPago(valorLeitura, senderPhoneNumber);
 
                         if (pixCopiaECola && paymentId) { 
@@ -666,18 +521,13 @@ async function startBot() {
                             await sock.sendPresenceUpdate("composing", sender);
                             await new Promise((resolve) => setTimeout(resolve, 1500));
 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                             // 1. Mensagem inicial com informações do valor
                             await sock.sendMessage(sender, {
                                 text: `🌜 Perfeito, meu benzinho! Para a Vovozinha abrir os caminhos do Tarô, a energia precisa fluir. O valor da sua tiragem é de **R$ ${valorLeitura / 100},00**. ✨`
                             });
 
                             await sock.sendPresenceUpdate("composing", sender);
-<<<<<<< HEAD
-                            await new Promise((resolve) => setTimeout(resolve, 1000)); // Pequena pausa
-=======
                             await new Promise((resolve) => setTimeout(resolve, 1000)); 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
 
                             // 2. Mensagem com as instruções para Pix Copia e Cola
                             await sock.sendMessage(sender, {
@@ -685,19 +535,6 @@ async function startBot() {
                             });
 
                             await sock.sendPresenceUpdate("composing", sender);
-<<<<<<< HEAD
-                            await new Promise((resolve) => setTimeout(resolve, 1000)); // Pequena pausa
-
-                            // 3. MENSAGEM SEPARADA APENAS COM O CÓDIGO PIX
-                            await sock.sendMessage(sender, {
-                                text: `\n${pixCopiaECola}\n` // SEM AS CRASES AQUI
-                            });
-
-                            await sock.sendPresenceUpdate("composing", sender);
-                            await new Promise((resolve) => setTimeout(resolve, 1000)); // Pequena pausa
-
-                            // 4. NOVA MENSAGEM: Apenas o aviso de validade
-=======
                             await new Promise((resolve) => setTimeout(resolve, 1000)); 
 
                             // 3. MENSAGEM SEPARADA APENAS COM O CÓDIGO PIX (COM CRASES NOVAMENTE)
@@ -717,7 +554,6 @@ async function startBot() {
                             await new Promise((resolve) => setTimeout(resolve, 1000)); 
 
                             // 5. MENSAGEM ORIGINAL: Apenas o aviso de validade
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                             await sock.sendMessage(sender, {
                                 text: `(Este código é válido por um tempo limitado.)`
                             });
@@ -731,15 +567,8 @@ async function startBot() {
                                     caption: `Ou escaneie o QR Code abaixo para pagar:`
                                 });
                             }
-<<<<<<< HEAD
-                        } else {
-                            await sock.sendMessage(sender, { text: "Vovozinha sentiu um bloqueio nas energias! Não consegui gerar o Pix agora. Por favor, tente novamente mais tarde. 😔" });
-                        }
-                    } else if (respostaConfirmacao === "não" || respostaConfirmacao === "nao") {
-                        delete estadoTarot[sender]; // Reseta o estado do Tarot
-=======
 
-                            // --- Configura o timer para a PRIMEIRA consulta automática (40 segundos) ---
+                            // --- NOVO: Configura o timer para a PRIMEIRA consulta automática (30 segundos) ---
                             // Esta é a função que gerencia as 3 tentativas e o timer longo
                             const scheduleNextCheck = async () => {
                                 // Se o estado do usuário mudou (pagou, cancelou), não continua
@@ -770,7 +599,7 @@ async function startBot() {
                                             await sock.sendPresenceUpdate("composing", sender);
                                             await new Promise((resolve) => setTimeout(resolve, 1000));
                                             await sock.sendMessage(sender, {
-                                                text: "😔 A Vovozinha não conseguiu confirmar seu pagamento após 40 minutos, e a sessão expirou. Por favor, inicie uma nova tiragem se desejar! ✨"
+                                                text: "😔 A Vovozinha não conseguiu confirmar seu pagamento após 30 minutos, e a sessão expirou. Por favor, inicie uma nova tiragem se desejar! ✨"
                                             });
                                         }
                                         // Finaliza a sessão independentemente, checkMercadoPagoPaymentStatus já tratou a aprovação
@@ -795,22 +624,20 @@ async function startBot() {
                                 const paymentApproved = await checkMercadoPagoPaymentStatus(paymentIdToVerify, sender, 'retry_short'); // Source 'retry_short'
 
                                 if (!paymentApproved) {
-
                                     // Se ainda não aprovado, reagenda a próxima tentativa curta
-                                    paymentTimers[sender] = setTimeout(scheduleNextCheck, 40 * 1000); // Reagenda a própria função
+                                    paymentTimers[sender] = setTimeout(scheduleNextCheck, 30 * 1000); // Reagenda a própria função
                                 }
                                 // Se aprovado, checkMercadoPagoPaymentStatus já lidou com tudo e limpou o timer.
                             };
 
-                            // Inicia a primeira chamada do scheduler (após 40 segundos)
-                            paymentTimers[sender] = setTimeout(scheduleNextCheck, 40 * 1000); 
+                            // Inicia a primeira chamada do scheduler (após 30 segundos)
+                            paymentTimers[sender] = setTimeout(scheduleNextCheck, 30 * 1000); 
 
                         } else {
                             await sock.sendMessage(sender, { text: "Vovozinha sentiu um bloqueio nas energias! Não consegui gerar o Pix agora. Por favor, tente novamente mais tarde.😔" });
                         }
                     } else if (respostaConfirmacao === "não" || respostaConfirmacao === "nao") {
                         delete estadoTarot[sender]; 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                         await sock.sendPresenceUpdate("composing", sender);
                         await new Promise((resolve) => setTimeout(resolve, 1500));
                         await sock.sendMessage(sender, {
@@ -825,17 +652,6 @@ async function startBot() {
                     }
                     break;
 
-<<<<<<< HEAD
-                case "aguardando_pagamento_mercadopago":
-                    await sock.sendPresenceUpdate("composing", sender);
-                    await new Promise((resolve) => setTimeout(resolve, 1500));
-                    await sock.sendMessage(sender, {
-                        text: "A Vovozinha ainda está aguardando a confirmação do seu pagamento pelo Mercado Pago, meu benzinho. Já pagou? Se sim, por favor, aguarde mais um pouquinho. Se não, o código Pix está logo acima! ✨",
-                    });
-                    break;
-
-=======
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                 case "aguardando_nome":
                     estado.nome = msg.trim();
                     estado.etapa = "aguardando_nascimento";
@@ -898,11 +714,7 @@ async function startBot() {
                         await sock.sendPresenceUpdate("composing", sender);
                         await new Promise((resolve) => setTimeout(resolve, 1500));
                         await sock.sendMessage(sender, {
-<<<<<<< HEAD
-                            text: "A Vovozinha não entendeu sua resposta. Por favor, diga **'Sim'** ou **'Não'** para confirmar sua data de nascimento. 🙏",
-=======
                             text: "A Vovozinha não entendeu sua resposta. Por favor, diga **'Sim'** ou **'Não'** para confirmar. 🙏",
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                         });
                     }
                     break;
@@ -982,16 +794,6 @@ async function startBot() {
                         usuariosTarotDB[sender].opt_out_proativo = false;
                         usuariosTarotDB[sender].enviado_lembrete_hoje = false;
                         usuariosTarotDB[sender].aguardando_resposta_lembrete = false;
-<<<<<<< HEAD
-                        salvarDB();
-
-                        await sock.sendMessage(sender, { text: resultado });
-                        await sock.sendPresenceUpdate("composing", sender);
-                        await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, {
-                            text: "💖 Essa foi a sua leitura. A Vovozinha sente que o universo te deu as dicas necessárias. Se quiser mais sabedoria das cartas, é só começar uma nova leitura! Limpeza Energética e Proteção Espiritual Visite https://s.shopee.com.br/BHzHi3dTW ✨\n\nSe quiser perguntar mais sobre a leitura de hoje, é só digitar sua pergunta. A Vovozinha está aqui para te acolher! 😊",
-                        });
-=======
                         
                         await sock.sendMessage(sender, { text: resultado });
                         await sock.sendPresenceUpdate("composing", sender);
@@ -1012,7 +814,6 @@ async function startBot() {
                         salvarDB(); // Salva essa mudança no DB
                         // --- FIM DO NOVO ---
 
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                     } else {
                         await sock.sendPresenceUpdate("composing", sender);
                         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -1022,31 +823,6 @@ async function startBot() {
                     }
                     break;
 
-<<<<<<< HEAD
-                case "leitura_concluida":
-                    await sock.sendPresenceUpdate("composing", sender);
-                    const { historico: novoHistorico, resposta: respostaConversa } = await conversar_com_tarot(
-                        estado.historico_chat,
-                        msg,
-                        estado.nome,
-                        estado.tema,
-                        estado.signo,
-                        estado.cartas,
-                        estado.pergunta_especifica
-                    );
-                    estado.historico_chat = novoHistorico;
-                    await sock.sendPresenceUpdate("paused", sender);
-                    await sock.sendMessage(sender, { text: respostaConversa });
-                    break;
-
-                default:
-                    await sock.sendPresenceUpdate("composing", sender);
-                    await new Promise((resolve) => setTimeout(resolve, 1500));
-                    await sock.sendMessage(sender, {
-                        text: "A Vovozinha está um pouco confusa, meu benzinho. Parece que a leitura foi interrompida. Por favor, digite **'cancelar'** para reiniciar ou **'vovó'** para tentar uma nova leitura. 🤷‍♀️",
-                    });
-                    delete estadoTarot[sender];
-=======
                 default: // Pega qualquer input inesperado e limpa o estado, ou responde confusão
                     await sock.sendPresenceUpdate("composing", sender);
                     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -1054,7 +830,6 @@ async function startBot() {
                         text: "A Vovozinha está um pouco confusa, meu benzinho. Parece que o fluxo de leitura foi interrompido ou já foi concluído. Por favor, diga **'vovó'** ou **'!tarot'** para iniciar uma nova leitura. 🤷‍♀️",
                     });
                     delete estadoTarot[sender]; // Garante que o estado seja limpo em caso de confusão
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
                     break;
             }
             return;
@@ -1152,11 +927,7 @@ async function enviarMensagens(sock, numeros, mensagem, midia = null, tipo = "te
             if (midia) {
                 await sock.sendMessage(jid, { [tipo]: midia, caption: mensagem });
             } else {
-<<<<<<< HEAD
-                await sock.sendMessage(jid, { text: mensagem }); // CORRIGIDO AQUI (removido jid duplicado)
-=======
                 await sock.sendMessage(jid, { text: mensagem });
->>>>>>> 7d84c8c (Implementa retentativas de Pix, aviso de copia e fluxo admin)
             }
 
             console.log(`✅ Message sent to ${numero}`);
