@@ -242,7 +242,7 @@ async function startBot() {
                 return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
             }
             if (!MERCADOPAGO_WEBHOOK_URL) {
-                console.error("❌ MERCADOPAGO_WEBHOOK_URL não está definido!");
+                console.error("❌ MERCADADOPAGO_WEBHOOK_URL não está definido!");
                 return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
             }
 
@@ -531,9 +531,9 @@ async function startBot() {
                             await sock.sendPresenceUpdate("composing", sender);
                             await new Promise((resolve) => setTimeout(resolve, 1000));
 
-                            // 3. MENSAGEM SEPARADA APENAS COM O CÓDIGO PIX (COM CRASES NOVAMENTE)
+                            // 3. MENSAGEM SEPARADA APENAS COM O CÓDIGO PIX (COM A CORREÇÃO, SEM CRASES)
                             await sock.sendMessage(sender, {
-                                text: `\`\`\`${pixCopiaECola.trim()}\`\`\``
+                                text: pixCopiaECola.trim() // <-- CORREÇÃO APLICADA AQUI
                             });
 
                             await sock.sendPresenceUpdate("composing", sender);
