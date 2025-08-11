@@ -666,4 +666,5 @@ const updateQR = (data) => {
 // --- Inicia o Servidor e o Bot ---
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    connectToWhatsApp();
 });
