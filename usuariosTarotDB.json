@@ -1,1 +1,9 @@
-{}
+{
+  "555185156039@s.whatsapp.net": {
+    "is_admin_granted_access": false,
+    "aguardando_pagamento_para_leitura": false,
+    "ultima_solicitacao_pagamento_timestamp": "2025-08-11T04:15:14.616Z",
+    "external_reference_atual": "555185156039",
+    "mercadopago_payment_id": 121291223839
+  }
+}
