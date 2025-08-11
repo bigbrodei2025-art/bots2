@@ -1,60 +1,44 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vovozinho do Tarô Profissional - Sabedoria Ancestral ao Seu Alcance</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Conectar Bot WhatsApp</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f0f2f5; }
+        .container { text-align: center; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        img { width: 300px; height: 300px; }
+        h1 { color: #333; }
+        p { color: #666; margin-top: 1rem; }
+    </style>
 </head>
 <body>
-    <header>
-        <nav>
-            <h1>Vovozinho do Tarô</h1>
-            <ul>
-                <li><a href="index.html">Início</a></li>
-                <li><a href="sobre.html">Sobre o Vovozinho</a></li>
-                <li><a href="simpatias.html">Simpatias</a></li>
-                <li><a href="curiosidades.html">Curiosidades</a></li>
-                <li><a href="contato.html">Contato</a></li>
-            </ul>
-        </nav>
-    </header>
+    <div class="container">
+        <h1>Autenticação do WhatsApp</h1>
+        <p id="status-log">Carregando...</p>
+        <img id="qr-image" src="./assets/loader.gif" alt="QR Code">
+    </div>
 
-    <main>
-        <section class="hero">
-            <div class="hero-content">
-                <h2>Conectando-se com a Sabedoria Antiga através do Tarô</h2>
-                <p>O Vovozinho do Tarô compartilha a luz do conhecimento ancestral para guiar seus passos e iluminar seu caminho. Descubra a magia e o poder das cartas.</p>
-                <a href="sobre.html" class="button">Conheça o Vovozinho</a>
-            </div>
-        </section>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
 
-        <section class="highlight-section">
-            <h3>Nossos Destaques</h3>
-            <div class="cards-container">
-                <div class="card">
-                    <h4>Leituras Personalizadas</h4>
-                    <p>Obtenha insights profundos sobre amor, carreira e vida com minhas leituras de tarô.</p>
-                    <a href="contato.html" class="button-small">Agende sua Consulta</a>
-                </div>
-                <div class="card">
-                    <h4>Simpatias Comprovadas</h4>
-                    <p>Encontre rituais simples e poderosos para atrair prosperidade e bem-estar.</p>
-                    <a href="simpatias.html" class="button-small">Ver Simpatias</a>
-                </div>
-                <div class="card">
-                    <h4>Descubra o Tarô</h4>
-                    <p>Desvende os segredos dos Arcanos Maiores e Menores em nossa seção de Curiosidades.</p>
-                    <a href="curiosidades.html" class="button-small">Saiba Mais</a>
-                </div>
-            </div>
-        </section>
-    </main>
+        socket.on('qr', (url) => {
+            document.getElementById('qr-image').src = url;
+            document.getElementById('status-log').innerText = 'Por favor, escaneie o QR code com seu celular.';
+        });
 
-    <footer>
-        <p>&copy; 2025 Vovozinho do Tarô Profissional. Todos os direitos reservados.</p>
-    </footer>
+        socket.on('qrstatus', (statusUrl) => {
+            document.getElementById('qr-image').src = statusUrl;
+        });
 
-    <script src="js/script.js"></script>
+        socket.on('log', (message) => {
+            document.getElementById('status-log').innerText = message;
+        });
+        
+        socket.on('user', (userInfo) => {
+            document.getElementById('status-log').innerText = `Conectado como: ${userInfo}`;
+        });
+    </script>
 </body>
 </html>
