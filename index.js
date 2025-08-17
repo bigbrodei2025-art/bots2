@@ -19,41 +19,156 @@ const { Server } = require("socket.io");
 const io = new Server(server);
 const axios = require('axios');
 const qrcode = require("qrcode");
+const crypto = require('crypto');
+require('dotenv').config();
 
 const { PREFIX, ADMIN_JIDS } = require("./config");
 
-// --- Credenciais do Mercado Pago (ATENÇÃO: Mantenha seguras!) ---
-const MERCADOPAGO_ACCESS_TOKEN = "APP_USR-6518621016085858-061522-c8158fa3e2da7d2bddbc37567c159410-24855470";
-const MERCADOPAGO_WEBHOOK_URL = "https://vovozinhadotaro.onrender.com/webhook-mercadopago";
+// --- Credenciais e Lógica das APIs (Shopee e Google Gemini) ---
+const SHOPEE_APP_ID = process.env.SHOPEE_APP_ID;
+const SHOPEE_SECRET = process.env.SHOPEE_SECRET;
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
-// --- Funções Auxiliares (Tarot, UUID) ---
-const {
-    formatar_data,
-    get_zodiac_sign,
-    gerar_leitura_tarot,
-    conversar_com_tarot,
-} = require("./tarot_logic");
+const SHOPEE_API_URL = "https://open-api.affiliate.shopee.com.br/graphql";
+const GOOGLE_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
+const PROMPT_IA = `Aja como um especialista em vendas no varejo. Você é criativo, persuasivo e empolgado. Escreva um parágrafo curto e conciso, de no máximo 4 linhas, com emojis, para vender o seguinte produto: {nome_produto}. Não repita o nome do produto no início.`;
 
-function generateUUIDv4() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+async function gerarAssinaturaShopee(timestamp, payload) {
+    const stringParaAssinatura = `${SHOPEE_APP_ID}${timestamp}${payload}${SHOPEE_SECRET}`;
+    return crypto.createHash('sha256').update(stringParaAssinatura).digest('hex');
+}
+
+async function fazerRequisicaoShopee(query) {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const payload = JSON.stringify({ query: query });
+    const assinatura = await gerarAssinaturaShopee(timestamp, payload);
+    const headers = {
+        'Authorization': `SHA256 Credential=${SHOPEE_APP_ID}, Timestamp=${timestamp}, Signature=${assinatura}`,
+        'Content-Type': 'application/json'
+    };
+
+    try {
+        const resposta = await axios.post(SHOPEE_API_URL, payload, { headers: headers, timeout: 30000 });
+        resposta.data.status = 200;
+        return resposta.data;
+    } catch (error) {
+        console.error("❌ Erro na requisição Shopee:", error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
+        return { errors: [{ message: "Erro na requisição Shopee" }] };
+    }
+}
+
+function normalizarPreco(valor) {
+    try {
+        const v = parseFloat(valor);
+        if (v > 100000) {
+            return v / 1000000;
+        } else if (v > 100) {
+            return v / 100;
+        } else {
+            return v;
+        }
+    } catch (e) {
+        return 0.0;
+    }
+}
+
+async function obterProdutoPorId(itemId, shopId) {
+    const query = `{
+        productOfferV2(itemId: "${itemId}", shopId: "${shopId}") {
+            nodes {
+                itemId
+                productName
+                priceMin
+                offerLink
+                imageUrl
+                priceDiscountRate
+            }
+        }
+    }`;
+    const resultado = await fazerRequisicaoShopee(query);
+    if (resultado.errors) {
+        return null;
+    }
+
+    const nodes = resultado.data?.productOfferV2?.nodes;
+    if (!nodes || nodes.length === 0) {
+        return null;
+    }
+
+    const produto = nodes[0];
+    const precoPromocional = normalizarPreco(produto.priceMin);
+    const desconto = produto.priceDiscountRate || 0;
+    let precoOriginal = precoPromocional;
+    if (desconto > 0) {
+        precoOriginal = precoPromocional / (1 - desconto / 100);
+    }
+
+    return {
+        ...produto,
+        precoMin: precoPromocional,
+        precoOriginal: precoOriginal,
+    };
+}
+
+async function gerarMensagemPromocional(nomeProduto) {
+    const promptCompleto = PROMPT_IA.replace("{nome_produto}", nomeProduto);
+    try {
+        const url = `${GOOGLE_API_URL}?key=${GOOGLE_API_KEY}`;
+        const dados = { contents: [{ parts: [{ text: promptCompleto }] }] };
+        const resposta = await axios.post(url, dados);
+        const mensagem = resposta.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+        if (mensagem && mensagem.toLowerCase().startsWith(nomeProduto.toLowerCase())) {
+            return mensagem.substring(nomeProduto.length).replace(/^[\s-:,.]+/, '').trim();
+        }
+        return mensagem || "Essa oferta está imperdível! 🎉";
+    } catch (e) {
+        console.error("❌ Erro ao gerar mensagem com Google AI:", e.response?.data || e.message);
+        return "Essa oferta está imperdível! 🎉";
+    }
+}
+
+// Lida com links encurtados
+async function parseUrl(url) {
+    if (url.includes("s.shopee.com.br")) {
+        try {
+            const response = await axios.head(url, { maxRedirects: 10, timeout: 5000 });
+            url = response.request.res.responseUrl;
+            console.log("Link encurtado resolvido para:", url);
+        } catch (error) {
+            console.error("❌ Erro ao resolver link encurtado:", error.message);
+            return { itemId: null, shopId: null };
+        }
+    }
+
+    const productMatch = url.match(/product\/(\d+)\/(\d+)/);
+    if (productMatch) {
+        return { itemId: productMatch[2], shopId: productMatch[1] };
+    }
+    const queryMatch = url.match(/itemId=(\d+).*shopId=(\d+)/);
+    if (queryMatch) {
+        return { itemId: queryMatch[1], shopId: queryMatch[2] };
+    }
+    const iMatch = url.match(/i\.(\d+)\.(\d+)/);
+    if (iMatch) {
+        return { itemId: iMatch[2], shopId: iMatch[1] };
+    }
+    return { itemId: null, shopId: null };
 }
 
 // --- Persistência de Dados do Usuário ---
-const usuariosTarotDB = {};
-const DB_FILE_PATH = path.join(__dirname, 'usuariosTarotDB.json');
+const usuariosDB = {};
+const DB_FILE_PATH = path.join(__dirname, 'usuariosDB.json');
 
 function carregarDB() {
     if (fs.existsSync(DB_FILE_PATH)) {
         try {
             const data = fs.readFileSync(DB_FILE_PATH, 'utf8');
-            Object.assign(usuariosTarotDB, JSON.parse(data || '{}'));
+            Object.assign(usuariosDB, JSON.parse(data || '{}'));
             console.log("✅ User DB loaded successfully.");
         } catch (e) {
             console.error("❌ Error loading user DB:", e);
-            Object.assign(usuariosTarotDB, {});
+            Object.assign(usuariosDB, {});
         }
     } else {
         console.log("ℹ️ User DB file not found, a new one will be created.");
@@ -62,7 +177,7 @@ function carregarDB() {
 
 function salvarDB() {
     try {
-        fs.writeFileSync(DB_FILE_PATH, JSON.stringify(usuariosTarotDB, null, 2), 'utf8');
+        fs.writeFileSync(DB_FILE_PATH, JSON.stringify(usuariosDB, null, 2), 'utf8');
         console.log("✅ User DB saved successfully.");
     } catch (e) {
         console.error("❌ Error saving user DB:", e);
@@ -71,11 +186,8 @@ function salvarDB() {
 
 carregarDB();
 
-const estadoTarot = {};
 const estadoEnvio = {};
-const paymentTimers = {};
-const MAX_RETRY_ATTEMPTS = 2;
-const LONG_TIMEOUT_MINUTES = 30;
+const estadoShopee = {};
 
 const PORT = process.env.PORT || 3000;
 
@@ -88,7 +200,7 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
 // --- Configuração do MongoDB para a sessão ---
-const MONGO_URL = process.env.MONGO_URL || 'mongodb+srv://sonhador:sonhador102030@cluster0.0puev0q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const MONGO_URL = process.env.MONGO_URL;
 const client = new MongoClient(MONGO_URL);
 
 // --- Configuração do Express e Rotas da Interface ---
@@ -159,12 +271,14 @@ const saveSessionToMongo = async (sessionPath) => {
         const files = fs.readdirSync(sessionPath);
         for (const file of files) {
             const filePath = path.join(sessionPath, file);
-            const content = fs.readFileSync(filePath, 'utf8');
-            await collection.updateOne(
-                { fileName: file },
-                { $set: { content: content } },
-                { upsert: true }
-            );
+            if (fs.existsSync(filePath)) {
+                const content = fs.readFileSync(filePath, 'utf8');
+                await collection.updateOne(
+                    { fileName: file },
+                    { $set: { content: content } },
+                    { upsert: true }
+                );
+            }
         }
         console.log("✅ Sessão local salva no MongoDB com sucesso.");
     } catch (e) {
@@ -198,132 +312,17 @@ const restoreSessionFromMongo = async (sessionPath) => {
     }
 };
 
-// --- Rota do Webhook do Mercado Pago ---
-app.post('/webhook-mercadopago', async (req, res) => {
-    console.log('✨ Mercado Pago webhook received!');
-    console.log('MP Webhook Body:', JSON.stringify(req.body, null, 2));
-
-    const notificationType = req.body.type;
-    const resourceId = req.body.data && req.body.data.id;
-
-    if (notificationType === 'payment' && resourceId) {
-        const externalRefFromResource = req.body.resource && req.body.resource.external_reference;
-        const externalRefFromData = req.body.data && req.body.data.external_reference;
-        const jidPhoneNumber = externalRefFromData || externalRefFromData || 'unknown';
-
-        const jid = `${jidPhoneNumber}@s.whatsapp.net`;
-
-        await checkMercadoPagoPaymentStatus(resourceId, jid, 'webhook');
-        return res.status(200).send('OK MP - Webhook processado');
-    } else {
-        console.log('⚠️ Webhook Mercado Pago: Tipo de notificação não suportado ou ID do recurso ausente.');
-        return res.status(400).send('Bad Request: Payload de webhook MP não reconhecido.');
-    }
-});
-
-// --- Função para Gerar Cobrança Pix no Mercado Pago (MOVIDA PARA O ESCOPO GLOBAL) ---
-async function gerarCobrancaPixMercadoPago(amountInCents, clientPhoneNumber) {
-    try {
-        const paymentsApiUrl = 'https://api.mercadopago.com/v1/payments';
-
-        if (!MERCADOPAGO_ACCESS_TOKEN) {
-            console.error("❌ MERCADOPAGO_ACCESS_TOKEN não está definido!");
-            return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
-        }
-        if (!MERCADOPAGO_WEBHOOK_URL) {
-            console.error("❌ MERCADADOPAGO_WEBHOOK_URL não está definido!");
-            return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
-        }
-
-        const idempotencyKey = generateUUIDv4();
-
-        const headers = {
-            'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
-            'Content-Type': 'application/json',
-            'X-Idempotency-Key': idempotencyKey
-        };
-
-        const body = {
-            transaction_amount: amountInCents / 100,
-            description: "Leitura de Tarô da Vovozinha",
-            payment_method_id: "pix",
-            external_reference: clientPhoneNumber,
-            payer: {
-                email: `vovozinha_client_${clientPhoneNumber}@example.com`,
-            },
-            notification_url: MERCADOPAGO_WEBHOOK_URL
-        };
-
-        console.log("Mercado Pago Request Body:", JSON.stringify(body, null, 2));
-
-        const response = await axios.post(paymentsApiUrl, body, { headers: headers });
-
-        if (response.data && response.data.point_of_interaction) {
-            const qrCodeData = response.data.point_of_interaction.transaction_data;
-            return {
-                pixCopiaECola: qrCodeData.qr_code,
-                qrCodeBase64: qrCodeData.qr_code_base64,
-                paymentId: response.data.id
-            };
-        }
-
-        console.error("❌ Resposta inesperada da API /payments do Mercado Pago:", JSON.stringify(response.data, null, 2));
-        return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
-
-    } catch (error) {
-        console.error("❌ Erro ao criar cobrança Pix com Mercado Pago:", error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
-        return { pixCopiaECola: null, qrCodeBase64: null, paymentId: null };
-    }
-}
-
-
-async function checkMercadoPagoPaymentStatus(paymentId, jid, source = 'webhook') {
-    if (paymentTimers[jid]) {
-        clearTimeout(paymentTimers[jid]); delete paymentTimers[jid]; console.log(`Timer de pagamento limpo para ${jid} (verificação ${source}).`);
-    }
-    try {
-        const response = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-            headers: { 'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}` }
-        });
-        const payment = response.data; const paymentStatus = payment.status; const externalReference = payment.external_reference;
-        if (externalReference && `${externalReference}@s.whatsapp.net` === jid) {
-            if (paymentStatus === 'approved') {
-                usuariosTarotDB[jid].pagamento_confirmado_para_leitura = true; usuariosTarotDB[jid].aguardando_pagamento_para_leitura = false; usuariosTarotDB[jid].last_payment_transaction_id = paymentId; salvarDB();
-                await sock.sendMessage(jid, { text: "A Vovozinha sentiu sua energia! ✨ Pagamento confirmado! Diga-me, qual o seu **nome** para a Vovozinha começar? 😊", });
-                delete estadoTarot[jid]; estadoTarot[jid] = { etapa: "aguardando_nome" }; return true;
-            } else if (paymentStatus === 'pending') { return false; }
-            else if (paymentStatus === 'rejected' || paymentStatus === 'cancelled') {
-                if (estadoTarot[jid] && estadoTarot[jid].etapa === "aguardando_pagamento_mercadopago") {
-                    await sock.sendMessage(jid, { text: "O pagamento **não foi aprovado** ou foi **cancelado**. Tente novamente se desejar a leitura. 😔", });
-                    usuariosTarotDB[jid].aguardando_pagamento_para_leitura = false; delete estadoTarot[jid]; salvarDB();
-                }
-                return false;
-            }
-        }
-        return false;
-    } catch (error) {
-        console.error(`❌ Erro ao consultar pagamento (${source}) no Mercado Pago:`, error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
-        if (estadoTarot[jid] && estadoTarot[jid].etapa === "aguardando_pagamento_mercadopago") {
-            await sock.sendMessage(jid, { text: "A Vovozinha sentiu um problema ao verificar seu pagamento. Aguarde ou tente novamente em alguns instantes. 😔", });
-        }
-        return false;
-    }
-}
-
-
 // --- Função de Conexão do Bot de WhatsApp ---
 async function connectToWhatsApp() {
     const sessionPath = path.join(__dirname, 'auth_info_baileys');
     
-    // Tenta restaurar a sessão do MongoDB
     const sessionRestored = await restoreSessionFromMongo(sessionPath);
     
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
     
-    // A função saveCreds nativa do Baileys será aprimorada para salvar no Mongo
     const customSaveCreds = async () => {
-        await saveCreds(); // Salva localmente
-        await saveSessionToMongo(sessionPath); // Salva no MongoDB
+        await saveCreds();
+        await saveSessionToMongo(sessionPath);
     };
 
     const { version } = await fetchLatestBaileysVersion();
@@ -396,278 +395,18 @@ async function connectToWhatsApp() {
         const sender = m.key.remoteJid;
         const msg = m.message.conversation || m.message.extendedTextMessage?.text || "";
         const mensagemMinuscula = msg.toLowerCase();
-        const hoje = new Date().toISOString().slice(0, 10);
 
-        if (!usuariosTarotDB[sender]) {
-            usuariosTarotDB[sender] = { is_admin_granted_access: false };
-        }
-        if (ADMIN_JIDS.includes(sender) && usuariosTarotDB[sender].is_admin_granted_access !== true) {
-            usuariosTarotDB[sender].is_admin_granted_access = true;
-            salvarDB();
-        }
-
-        const isAdmin = ADMIN_JIDS.includes(sender);
-        if (isAdmin) {
-            const adminCommand = mensagemMinuscula.trim();
-            if (adminCommand.startsWith(`${PREFIX}liberar `)) {
-                const targetNumber = adminCommand.substring(PREFIX.length + "liberar ".length).trim();
-                const targetJid = `${targetNumber.replace(/\D/g, '')}@s.whatsapp.net`;
-                if (!usuariosTarotDB[targetJid]) { usuariosTarotDB[targetJid] = {}; }
-                usuariosTarotDB[targetJid].is_admin_granted_access = true;
-                usuariosTarotDB[targetJid].pagamento_confirmado_para_leitura = true;
-                salvarDB();
-                await sock.sendMessage(sender, { text: `✅ Acesso liberado para ${targetJid}.` });
-                await sock.sendMessage(targetJid, { text: `✨ Seu acesso para uma tiragem de Tarô foi liberado. Diga seu **nome** para começarmos! 😊` });
-                delete estadoTarot[targetJid];
-                estadoTarot[targetJid] = { etapa: "aguardando_nome" };
-                return;
-            } else if (adminCommand.startsWith(`${PREFIX}revogar `)) {
-                const targetNumber = adminCommand.substring(PREFIX.length + "revogar ".length).trim();
-                const targetJid = `${targetNumber.replace(/\D/g, '')}@s.whatsapp.net`;
-                if (usuariosTarotDB[targetJid]) {
-                    usuariosTarotDB[targetJid].is_admin_granted_access = false;
-                    usuariosTarotDB[targetJid].pagamento_confirmado_para_leitura = false;
-                    salvarDB();
-                    await sock.sendMessage(sender, { text: `❌ Acesso revogado para ${targetJid}.` });
-                    await sock.sendMessage(targetJid, { text: `😔 Seu acesso liberado para tiragens foi revogado por um administrador.` });
-                    delete estadoTarot[targetJid];
-                } else {
-                    await sock.sendMessage(sender, { text: `⚠️ Usuário ${targetNumber} não encontrado.` });
-                }
-                return;
-            }
-        }
-
-        const comandosCancelar = ["cancelar", "desistir", "nao quero mais", "não quero mais"];
-        const isComandoCancelar = comandosCancelar.some(cmd => mensagemMinuscula.includes(cmd));
-        if (isComandoCancelar && estadoTarot[sender] && estadoTarot[sender].etapa === "aguardando_pagamento_mercadopago") {
-            if (paymentTimers[sender]) {
-                clearTimeout(paymentTimers[sender]); delete paymentTimers[sender];
-            }
-            usuariosTarotDB[sender].aguardando_pagamento_para_leitura = false;
-            salvarDB();
-            delete estadoTarot[sender];
-            await sock.sendPresenceUpdate("composing", sender);
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            await sock.sendMessage(sender, { text: "Você cancelou a solicitação de pagamento, meu benzinho. A Vovozinha estará aqui quando precisar de outro conselho! 💖" });
-            return;
-        }
-
-        const saudacoes = ["oi", "olá", "ola"];
-        const isSaudacaoInicio = saudacoes.some(s => mensagemMinuscula.includes(s));
-        const isTarotCommandInicio = msg.startsWith(`${PREFIX}tarot`) || mensagemMinuscula.includes("vovó");
-
-        if ((isTarotCommandInicio || isSaudacaoInicio) && !estadoTarot[sender]) {
-            if (usuariosTarotDB[sender].is_admin_granted_access === true || usuariosTarotDB[sender].pagamento_confirmado_para_leitura === true) {
-                usuariosTarotDB[sender].pagamento_confirmado_para_leitura = true;
-                salvarDB();
-                await sock.sendPresenceUpdate("composing", sender);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sock.sendMessage(sender, {
-                    text: "A Vovozinha sente sua energia! Seu acesso já está liberado. Diga-me, qual o seu **nome** para a Vovozinha começar? 😊",
-                });
-                delete estadoTarot[sender];
-                estadoTarot[sender] = { etapa: "aguardando_nome" };
-                return;
-            }
-
-            if (!usuariosTarotDB[sender].aguardando_pagamento_para_leitura) {
-                estadoTarot[sender] = { etapa: "aguardando_confirmacao_1_centavo" };
-                await sock.sendPresenceUpdate("composing", sender);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sock.sendMessage(sender, {
-                    text: "Olá, meu benzinho! Quer fazer uma tiragem de Tarô completa com a Vovozinha por apenas **1 centavo** para sentir a energia das cartas? (Sim/Não) ✨",
-                });
-                return;
-            }
-        }
-
-        const comandosPago = ["pago", "já paguei", "ja paguei", "confirmei o pagamento", "paguei"];
-        const isComandoPago = comandosPago.some(cmd => mensagemMinuscula.includes(cmd));
-
-        if (isComandoPago && estadoTarot[sender] && estadoTarot[sender].etapa === "aguardando_pagamento_mercadopago") {
-            const paymentIdToVerify = estadoTarot[sender].mercadopago_payment_id;
-            if (paymentIdToVerify) {
-                await sock.sendPresenceUpdate("composing", sender);
-                await new Promise((resolve) => setTimeout(resolve, 1000));
-                await sock.sendMessage(sender, { text: "Vovozinha recebeu! Verificando o pagamento... 🕰️" });
-                await checkMercadoPagoPaymentStatus(paymentIdToVerify, sender, 'manual');
-            } else {
-                await sock.sendPresenceUpdate("composing", sender);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sock.sendMessage(sender, { text: "A Vovozinha não encontrou um pagamento recente para verificar, meu benzinho. Por favor, comece com 'vovó' ou '!tarot' para gerar um novo." });
-            }
-            return;
-        }
-
-        if (estadoTarot[sender] && estadoTarot[sender].etapa === "aguardando_pagamento_mercadopago" && !isComandoPago && !isComandoCancelar) {
-            await sock.sendPresenceUpdate("composing", sender);
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            await sock.sendMessage(sender, {
-                text: "A Vovozinha ainda está aguardando a confirmação do seu pagamento pelo Mercado Pago, meu benzinho. Se já pagou, diga 'pago'. Se desistiu, diga 'cancelar'. ✨",
-            });
-            return;
-        }
-
-        // --- Lógica de fluxo de leitura de Tarô (continuação) ---
-        if (msg.toLowerCase() === "cancelar" && estadoTarot[sender]) {
-            delete estadoTarot[sender];
-            await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-            await sock.sendMessage(sender, {
-                text: "Leitura de Tarô cancelada, meu benzinho. Volte sempre que precisar do carinho da Vovozinha! 💖",
-            });
-            return;
-        }
-        
-        if (estadoTarot[sender]) {
-            const estado = estadoTarot[sender];
-            switch (estado.etapa) {
-                case "aguardando_confirmacao_1_centavo":
-                    const respostaConfirmacao = msg.trim().toLowerCase();
-                    if (respostaConfirmacao === "sim") {
-                        const senderPhoneNumber = sender.split('@')[0].replace(/\D/g, '');
-                        const valorLeitura = 1;
-                        const { pixCopiaECola, qrCodeBase64, paymentId } = await gerarCobrancaPixMercadoPago(valorLeitura, senderPhoneNumber);
-
-                        if (pixCopiaECola && paymentId) {
-                            estadoTarot[sender] = {
-                                etapa: "aguardando_pagamento_mercadopago",
-                                external_reference_gerado: senderPhoneNumber,
-                                mercadopago_payment_id: paymentId,
-                                retry_count: 0
-                            };
-                            usuariosTarotDB[sender].aguardando_pagamento_para_leitura = true;
-                            usuariosTarotDB[sender].ultima_solicitacao_pagamento_timestamp = new Date().toISOString();
-                            usuariosTarotDB[sender].external_reference_atual = estadoTarot[sender].external_reference_gerado;
-                            usuariosTarotDB[sender].mercadopago_payment_id = paymentId;
-                            salvarDB();
-
-                            await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                            await sock.sendMessage(sender, { text: `🌜 Perfeito! O valor é de **R$ ${valorLeitura / 100},00**. Faça o pagamento via Pix Copia e Cola para o código abaixo.` });
-                            await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1000));
-                            await sock.sendMessage(sender, { text: pixCopiaECola.trim() });
-                            await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1000));
-                            if (qrCodeBase64) {
-                                const qrBuffer = Buffer.from(qrCodeBase64, 'base64');
-                                await sock.sendMessage(sender, { image: qrBuffer, caption: `Ou escaneie o QR Code abaixo para pagar:` });
-                            }
-                            await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1000));
-                            await sock.sendMessage(sender, { text: `(Este código é válido por um tempo limitado.)` });
-                            const scheduleNextCheck = async () => { /* ... lógica de checagem ... */ };
-                            paymentTimers[sender] = setTimeout(scheduleNextCheck, 30 * 1000);
-                        } else {
-                            await sock.sendMessage(sender, { text: "Vovozinha sentiu um bloqueio nas energias! Não consegui gerar o Pix agora. Por favor, tente novamente mais tarde.😔" });
-                        }
-                    } else if (respostaConfirmacao === "não" || respostaConfirmacao === "nao") {
-                        delete estadoTarot[sender];
-                        await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, { text: "Tudo bem, meu benzinho. A Vovozinha estará aqui quando você precisar de um conselho. Volte sempre! 💖", });
-                    } else {
-                        await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, { text: "A Vovozinha não entendeu. Por favor, diga **'Sim'** ou **'Não'** para confirmar. 🙏", });
-                    }
-                    break;
-                case "aguardando_nome":
-                    estado.nome = msg.trim(); estado.etapa = "aguardando_nascimento";
-                    usuariosTarotDB[sender].nome = estado.nome; salvarDB();
-                    await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                    await sock.sendMessage(sender, { text: `Que nome lindo, ${estado.nome}! Por favor, me diga sua **data de nascimento** (DDMMYYYY). Ex: 19022001 📅`, });
-                    break;
-                case "aguardando_nascimento":
-                    try {
-                        const data_digitada = msg.trim();
-                        const data_formatada_para_exibir = formatar_data(data_digitada);
-                        const signo_calculado = get_zodiac_sign(data_formatada_para_exibir);
-                        estado.nascimento = data_digitada; estado.nascimento_formatado = data_formatada_para_exibir; estado.signo = signo_calculado;
-                        estado.etapa = "confirmando_nascimento"; await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 7000));
-                        await sock.sendMessage(sender, { text: `A Vovozinha entendeu que você nasceu em **${data_formatada_para_exibir.split("-").reverse().join("/")}** e seu signo é **${signo_calculado}**. Está correto? (Sim/Não) 🤔`, });
-                    } catch (e) {
-                        await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, { text: `A Vovozinha sentiu algo errado. Por favor, tente novamente no formato DDMMYYYY, meu anjo. 😔`, });
-                    }
-                    break;
-                case "confirmando_nascimento":
-                    const resposta_confirmacao = msg.trim().toLowerCase();
-                    if (resposta_confirmacao === "sim") {
-                        estado.etapa = "aguardando_tema";
-                        await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, { text: "🕯️ Ótimo! Diga-me, onde seu coração busca conselhos?\n\n1️⃣ **Amor**\n2️⃣ **Trabalho**\n3️⃣ **Dinheiro**\n4️⃣ **Espírito e Alma**\n5️⃣ **Tenho uma pergunta específica**", });
-                    } else if (resposta_confirmacao === "não" || resposta_confirmacao === "nao") {
-                        estado.etapa = "aguardando_nascimento";
-                        await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, { text: "Ah, perdão! Por favor, digite sua **data de nascimento** (DDMMYYYY) novamente. Ex: 19022001 📅", });
-                    } else {
-                        await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, { text: "A Vovozinha não entendeu. Por favor, diga **'Sim'** ou **'Não'** para confirmar. 🙏", });
-                    }
-                    break;
-                case "aguardando_tema":
-                    const temasOpcoes = { "1": "Amor", "2": "Trabalho", "3": "Dinheiro", "4": "Espírito e alma", "5": "Pergunta Específica", };
-                    const temaEscolhidoTexto = temasOpcoes[msg.trim()];
-                    if (temaEscolhidoTexto) {
-                        estado.tema = temaEscolhidoTexto;
-                        if (estado.tema === "Pergunta Específica") {
-                            estado.etapa = "aguardando_pergunta";
-                            await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                            await sock.sendMessage(sender, { text: "Conte à Vovozinha... o que te aflige? Escreva sua **pergunta** com carinho: 💬", });
-                        } else {
-                            estado.etapa = "aguardando_tipo_tiragem";
-                            await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                            await sock.sendMessage(sender, { text: "✨ Vamos ver quantas cartas você quer que a Vovozinha puxe:\n\n1️⃣ **Apenas uma**\n2️⃣ **Três cartas**\n3️⃣ **Uma tiragem completa**", });
-                        }
-                    } else {
-                        await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, { text: "A Vovozinha não entendeu. Por favor, escolha um número de **1 a 5** para o tema. 🙏", });
-                    }
-                    break;
-                case "aguardando_pergunta":
-                    estado.pergunta_especifica = msg.trim(); estado.etapa = "aguardando_tipo_tiragem";
-                    await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                    await sock.sendMessage(sender, { text: "✨ Quantas cartas você quer que a Vovozinha puxe:\n\n1️⃣ **Apenas uma**\n2️⃣ **Três cartas**\n3️⃣ **Uma tiragem completa**", });
-                    break;
-                case "aguardando_tipo_tiragem":
-                    const tiposTiragem = { "1": "uma", "2": "tres", "3": "completa", };
-                    const tipoTiragemEscolhido = tiposTiragem[msg.trim()];
-                    if (tipoTiragemEscolhido) {
-                        estado.tipo_tiragem = tipoTiragemEscolhido;
-                        await sock.sendPresenceUpdate("composing", sender);
-                        const { resultado, cartas_selecionadas, historico_inicial } = await gerar_leitura_tarot(estado.nome, estado.nascimento, estado.tema, estado.tipo_tiragem, estado.pergunta_especifica);
-                        await sock.sendPresenceUpdate("paused", sender);
-                        estado.cartas = cartas_selecionadas; estado.historico_chat = historico_inicial; estado.etapa = "leitura_concluida";
-                        usuariosTarotDB[sender].last_reading_date_completa = new Date().toISOString(); usuariosTarotDB[sender].opt_out_proativo = false; usuariosTarotDB[sender].enviado_lembrete_hoje = false; usuariosTarotDB[sender].aguardando_resposta_lembrete = false;
-                        await sock.sendMessage(sender, { text: resultado });
-                        await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, { text: "💖 Essa foi a sua leitura, meu benzinho. Quando seu coração buscar novas orientações, é só dizer **'vovó'** ou **'!tarot'** novamente. 😊" });
-                        if (!usuariosTarotDB[sender].is_admin_granted_access) { usuariosTarotDB[sender].pagamento_confirmado_para_leitura = false; usuariosTarotDB[sender].aguardando_pagamento_para_leitura = false; }
-                        delete estadoTarot[sender]; salvarDB();
-                    } else {
-                        await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                        await sock.sendMessage(sender, { text: "A Vovozinha não entendeu. Por favor, escolha **'1'**, **'2'**, ou **'3'**. 🙏", });
-                    }
-                    break;
-                default:
-                    await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
-                    await sock.sendMessage(sender, { text: "A Vovozinha está um pouco confusa. Diga **'vovó'** ou **'!tarot'** para iniciar uma nova leitura. 🤷‍♀️", });
-                    delete estadoTarot[sender];
-                    break;
-            }
-            return;
-        }
-
-        // --- Lógica de envio de mensagens em massa (separada da lógica do Tarô) ---
+        // --- Lógica de envio de mensagens em massa ---
         if (msg.startsWith("!ping")) {
-            const tempoAtual = new Date(); const status = await sock.getState();
-            const responseText = `🏓 PONG! \nConnection Status: ${status}\nCurrent Time: ${tempoAtual.toLocaleString()}`;
-            await sock.sendPresenceUpdate("composing", sender); await new Promise((resolve) => setTimeout(resolve, 1500));
+            const tempoAtual = new Date();
+            const responseText = `🏓 PONG! \nStatus: Online\nCurrent Time: ${tempoAtual.toLocaleString()}`;
+            await sock.sendPresenceUpdate("composing", sender);
+            await new Promise((resolve) => setTimeout(resolve, 1500));
             await sock.sendMessage(sender, { text: responseText });
             return;
         }
     
         if (msg.startsWith(`${PREFIX}enviar`)) {
-            if (estadoTarot[sender]) {
-                await sock.sendMessage(sender, { text: "Você já está em uma leitura de Tarô. Digite **'cancelar'** para sair." });
-                return;
-            }
             estadoEnvio[sender] = { etapa: "numero" };
             await sock.sendMessage(sender, { text: "📲 Por favor, forneça o número do cliente! (ex: 5511999999999) ou envie o CSV." });
             return;
@@ -706,6 +445,75 @@ async function connectToWhatsApp() {
                 return;
             }
         }
+        
+        // --- Lógica simplificada: Detectar link e gerar oferta ---
+        const url_info = await parseUrl(msg.trim());
+
+        if (url_info.itemId && url_info.shopId) {
+            await sock.sendPresenceUpdate("composing", sender);
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            await sock.sendMessage(sender, { text: "Buscando produto e gerando mensagem promocional, aguarde... ⏳" });
+
+            const produto = await obterProdutoPorId(url_info.itemId, url_info.shopId);
+
+            if (!produto) {
+                await sock.sendPresenceUpdate("composing", sender);
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                await sock.sendMessage(sender, { text: "Produto não encontrado ou erro na API da Shopee. 😔" });
+                return;
+            }
+
+            const nome = produto.productName || 'Não disponível';
+            const link = produto.offerLink || 'Não disponível';
+            const imageUrl = produto.imageUrl;
+            const precoPromocional = produto.precoMin || 0.0;
+            const precoOriginal = produto.precoOriginal || precoPromocional;
+            const desconto = produto.priceDiscountRate || 0;
+
+            const mensagemPromocional = await gerarMensagemPromocional(nome);
+
+            const textoResultado = `
+🔥 *${nome}*
+*De* ~~R$ ${precoOriginal.toFixed(2)}~~
+💰 *Por R$ ${precoPromocional.toFixed(2)}* 😱
+(${desconto}% OFF)
+
+${mensagemPromocional}
+
+🛒 *Compre agora* 👉 ${link}
+
+⚠️ _Promoção sujeita à alteração de preço e estoque do site._
+            `;
+
+            // Lógica para arredondar o preço original e recalcular o desconto
+            const precoOriginalArredondado = Math.round(precoOriginal);
+            const descontoCalculado = Math.round(((precoOriginalArredondado - precoPromocional) / precoOriginalArredondado) * 100);
+
+            const textoResultadoComDescontoArredondado = `
+🔥 *${nome}*
+*De* ~R$ ${precoOriginalArredondado.toFixed(2)}~
+💰 *Por R$ ${precoPromocional.toFixed(2)}* 😱
+(${descontoCalculado}% OFF)
+
+${mensagemPromocional}
+
+🛒 *Compre agora* 👉 ${link}
+
+⚠️ _Promoção sujeita à alteração de preço e estoque do site._
+            `;
+
+            if (imageUrl) {
+                await sock.sendMessage(sender, { 
+                    image: { url: imageUrl }, 
+                    caption: textoResultadoComDescontoArredondado, 
+                    mimetype: 'image/jpeg' 
+                });
+            } else {
+                await sock.sendMessage(sender, { text: textoResultadoComDescontoArredondado });
+            }
+            
+            return;
+        }
     });
 }
 
@@ -731,7 +539,7 @@ async function enviarMensagens(sock, numeros, mensagem, midia = null, tipo = "te
     }
 }
 
-// --- Funções de Sockets.IO para a Interface (nova lógica) ---
+// --- Funções de Sockets.IO para a Interface ---
 const isConnected = () => {
     return sock?.user ? true : false;
 };
