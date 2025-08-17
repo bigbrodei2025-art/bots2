@@ -1,6 +1,8 @@
 // --- Imports e Configurações Iniciais ---
 const undici = require('undici'); // Importa o undici para a API de criptografia
+const { FormData, File } = require('node-fetch'); // Adiciona node-fetch para polyfill da API File
 Object.assign(globalThis, undici); // Faz com que o crypto e o fetch fiquem disponíveis globalmente
+Object.assign(globalThis, { FormData, File }); // Adiciona o polyfill de FormData e File
 
 const {
     default: makeWASocket,
@@ -131,7 +133,6 @@ async function gerarMensagemPromocional(nomeProduto) {
     }
 }
 
-// Lida com links encurtados
 async function parseUrl(url) {
     if (url.includes("s.shopee.com.br")) {
         try {
