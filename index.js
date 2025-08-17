@@ -57,23 +57,18 @@ async function fazerRequisicaoShopee(query) {
     }
 }
 
+// CORREÇÃO: Função de normalização de preço simplificada e mais precisa
 function normalizarPreco(valor) {
     try {
         const v = parseFloat(valor);
-        if (v > 100000) {
-            return v / 1000000;
-        } else if (v > 100) {
-            return v / 100;
-        } else {
-            return v;
-        }
+        // A API da Shopee retorna preços em centavos. Sempre dividimos por 100.
+        return v / 100;
     } catch (e) {
         return 0.0;
     }
 }
 
 async function obterProdutoPorId(itemId, shopId) {
-    // Mantém a sua query original, pois a outra gerou erro
     const query = `{
         productOfferV2(itemId: "${itemId}", shopId: "${shopId}") {
             nodes {
@@ -100,17 +95,14 @@ async function obterProdutoPorId(itemId, shopId) {
     const precoPromocional = normalizarPreco(produto.priceMin);
     const desconto = produto.priceDiscountRate || 0;
     
-    // Calcula o preço original com maior precisão e garante que ele seja maior ou igual ao promocional
+    // Calcula o preço original com base no preço promocional e no desconto
     let precoOriginal = precoPromocional;
     if (desconto > 0) {
-        const precoCalculado = precoPromocional / (1 - desconto / 100);
-        precoOriginal = parseFloat(precoCalculado.toFixed(2)); // Arredonda para 2 casas decimais
+        precoOriginal = precoPromocional / (1 - desconto / 100);
     }
     
     // Garante que o preço original não seja menor que o preço promocional
-    if (precoOriginal < precoPromocional) {
-        precoOriginal = precoPromocional;
-    }
+    precoOriginal = Math.max(precoOriginal, precoPromocional);
 
     return {
         ...produto,
