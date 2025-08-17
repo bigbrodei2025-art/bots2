@@ -73,6 +73,7 @@ function normalizarPreco(valor) {
 }
 
 async function obterProdutoPorId(itemId, shopId) {
+    // Mantém a sua query original, pois a outra gerou erro
     const query = `{
         productOfferV2(itemId: "${itemId}", shopId: "${shopId}") {
             nodes {
@@ -99,14 +100,17 @@ async function obterProdutoPorId(itemId, shopId) {
     const precoPromocional = normalizarPreco(produto.priceMin);
     const desconto = produto.priceDiscountRate || 0;
     
-    // Calcula o preço original com base no preço promocional e no desconto
+    // Calcula o preço original com maior precisão e garante que ele seja maior ou igual ao promocional
     let precoOriginal = precoPromocional;
     if (desconto > 0) {
-        precoOriginal = precoPromocional / (1 - desconto / 100);
+        const precoCalculado = precoPromocional / (1 - desconto / 100);
+        precoOriginal = parseFloat(precoCalculado.toFixed(2)); // Arredonda para 2 casas decimais
     }
     
     // Garante que o preço original não seja menor que o preço promocional
-    precoOriginal = Math.max(precoOriginal, precoPromocional);
+    if (precoOriginal < precoPromocional) {
+        precoOriginal = precoPromocional;
+    }
 
     return {
         ...produto,
