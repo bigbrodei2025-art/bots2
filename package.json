@@ -1,24 +1,34 @@
 {
-  "name": "whatsapp-bot",
+  "name": "whatsapp-shopee-bot",
   "version": "1.0.0",
-  "description": "Bot WhatsApp com logica da Shopee",
+  "description": "Bot do WhatsApp para promoções da Shopee com geração automática de mensagens e integração via Gemini AI.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
+  "keywords": [
+    "whatsapp",
+    "shopee",
+    "baileys",
+    "express",
+    "socket.io",
+    "gemini",
+    "promoções",
+    "bot"
+  ],
+  "author": "Seu Nome",
+  "license": "MIT",
   "engines": {
-    "node": "18.x"
+    "node": ">=18.0.0"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.18",
-    "axios": "^1.7.2",
+    "@whiskeysockets/baileys": "^6.7.4",
+    "axios": "^1.6.0",
     "dotenv": "^16.3.1",
-    "express": "^5.1.0",
-    "mongodb": "^6.8.0",
-    "node-fetch": "^2.7.0",
-    "pino": "^8.21.0",
-    "qrcode": "^1.5.4",
-    "socket.io": "^4.8.1",
-    "undici": "^7.13.0"
+    "express": "^4.18.2",
+    "mongodb": "^6.5.0",
+    "pino": "^8.17.0",
+    "qrcode": "^1.5.3",
+    "socket.io": "^4.7.2"
   }
 }
