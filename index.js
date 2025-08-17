@@ -82,7 +82,6 @@ async function obterProdutoPorId(itemId, shopId) {
                 offerLink
                 imageUrl
                 priceDiscountRate
-                originalPriceMin
             }
         }
     }`;
@@ -98,9 +97,16 @@ async function obterProdutoPorId(itemId, shopId) {
 
     const produto = nodes[0];
     const precoPromocional = normalizarPreco(produto.priceMin);
-    // Usa o preço original se estiver disponível na API, caso contrário, usa o preço promocional como fallback.
-    const precoOriginal = produto.originalPriceMin ? normalizarPreco(produto.originalPriceMin) : precoPromocional;
     const desconto = produto.priceDiscountRate || 0;
+    
+    // Calcula o preço original com base no preço promocional e no desconto
+    let precoOriginal = precoPromocional;
+    if (desconto > 0) {
+        precoOriginal = precoPromocional / (1 - desconto / 100);
+    }
+    
+    // Garante que o preço original não seja menor que o preço promocional
+    precoOriginal = Math.max(precoOriginal, precoPromocional);
 
     return {
         ...produto,
