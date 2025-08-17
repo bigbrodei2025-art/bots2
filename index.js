@@ -1,4 +1,7 @@
 // --- Imports e Configurações Iniciais ---
+const undici = require('undici'); // Importa o undici para a API de criptografia
+Object.assign(globalThis, undici); // Faz com que o crypto e o fetch fiquem disponíveis globalmente
+
 const {
     default: makeWASocket,
     fetchLatestBaileysVersion,
@@ -468,30 +471,16 @@ async function connectToWhatsApp() {
             const imageUrl = produto.imageUrl;
             const precoPromocional = produto.precoMin || 0.0;
             const precoOriginal = produto.precoOriginal || precoPromocional;
-            const desconto = produto.priceDiscountRate || 0;
 
             const mensagemPromocional = await gerarMensagemPromocional(nome);
-
-            const textoResultado = `
-🔥 *${nome}*
-*De* ~~R$ ${precoOriginal.toFixed(2)}~~
-💰 *Por R$ ${precoPromocional.toFixed(2)}* 😱
-(${desconto}% OFF)
-
-${mensagemPromocional}
-
-🛒 *Compre agora* 👉 ${link}
-
-⚠️ _Promoção sujeita à alteração de preço e estoque do site._
-            `;
 
             // Lógica para arredondar o preço original e recalcular o desconto
             const precoOriginalArredondado = Math.round(precoOriginal);
             const descontoCalculado = Math.round(((precoOriginalArredondado - precoPromocional) / precoOriginalArredondado) * 100);
 
-            const textoResultadoComDescontoArredondado = `
+            const textoResultado = `
 🔥 *${nome}*
-*De* ~R$ ${precoOriginalArredondado.toFixed(2)}~
+*De* ~~R$ ${precoOriginalArredondado.toFixed(2)}~~
 💰 *Por R$ ${precoPromocional.toFixed(2)}* 😱
 (${descontoCalculado}% OFF)
 
@@ -505,11 +494,11 @@ ${mensagemPromocional}
             if (imageUrl) {
                 await sock.sendMessage(sender, { 
                     image: { url: imageUrl }, 
-                    caption: textoResultadoComDescontoArredondado, 
+                    caption: textoResultado, 
                     mimetype: 'image/jpeg' 
                 });
             } else {
-                await sock.sendMessage(sender, { text: textoResultadoComDescontoArredondado });
+                await sock.sendMessage(sender, { text: textoResultado });
             }
             
             return;
