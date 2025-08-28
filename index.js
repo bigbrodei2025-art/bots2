@@ -57,12 +57,15 @@ async function fazerRequisicaoShopee(query) {
     }
 }
 
+// CORREÇÃO: Função de normalização de preço aprimorada
 function normalizarPreco(valor) {
     try {
         const v = parseFloat(valor);
+        // Se o valor for muito grande, assuma que são centavos e divida por 100
         if (v >= 1000) { 
             return v / 100;
         }
+        // Se o valor for menor, mantenha como está
         return v;
     } catch (e) {
         return 0.0;
@@ -128,54 +131,36 @@ async function gerarMensagemPromocional(nomeProduto) {
     }
 }
 
-// CORREÇÃO: Função de parse de URL aprimorada
+// Lida com links encurtados
 async function parseUrl(url) {
-    // Resolve links encurtados da Shopee
-    if (url.includes("s.shopee.com.br")) {
-        try {
-            const response = await axios.head(url, { maxRedirects: 10, timeout: 5000 });
-            const resolvedUrl = response.request.res.responseUrl;
-            console.log("Link encurtado resolvido para:", resolvedUrl);
-            url = resolvedUrl;
-        } catch (error) {
-            console.error("❌ Erro ao resolver link encurtado:", error.message);
-            console.log("Link original:", url);
-            return { itemId: null, shopId: null };
-        }
+    if (url.includes("s.shopee.com.br")) {
+        try {
+            const response = await axios.head(url, { maxRedirects: 10, timeout: 5000 });
+            url = response.request.res.responseUrl;
+            console.log("Link encurtado resolvido para:", url);
+        } catch (error) {
+            console.error("❌ Erro ao resolver link encurtado:", error.message);
+            return { itemId: null, shopId: null };
+        }
+    }
+
+    const productMatch = url.match(/product\/(\d+)\/(\d+)/);
+    if (productMatch) {
+        return { itemId: productMatch[2], shopId: productMatch[1] };
+    }
+    const queryMatch = url.match(/itemId=(\d+).*shopId=(\d+)/);
+    if (queryMatch) {
+        return { itemId: queryMatch[1], shopId: queryMatch[2] };
+    }
+    const iMatch = url.match(/i\.(\d+)\.(\d+)/);
+    if (iMatch) {
+        return { itemId: iMatch[2], shopId: iMatch[1] };
+    }
+    const nameMatch = url.match(/shopee\.com\.br\/([a-zA-Z0-9%\-]+)-i\.(\d+)\.(\d+)/);
+    if (nameMatch) {
+        return { shopId: nameMatch[2], itemId: nameMatch[3] };
     }
-
-    // Padrões de regex mais robustos para extrair itemId e shopId
-    const regexPatterns = [
-        /product\/(\d+)\/(\d+)/,
-        /itemId=(\d+).*shopId=(\d+)/,
-        /i\.(\d+)\.(\d+)/,
-        /shopee\.com\.br\/([a-zA-Z0-9%\-]+)-i\.(\d+)\.(\d+)/,
-    ];
-    
-    for (const regex of regexPatterns) {
-        const match = url.match(regex);
-        if (match) {
-            // A ordem dos grupos capturados pode variar dependendo da regex
-            const isProductPattern = regex.toString().includes('product');
-            const isIPattern = regex.toString().includes('i.');
-
-            if (isProductPattern) {
-                return { shopId: match[1], itemId: match[2] };
-            } else if (isIPattern) {
-                // Último regex tem 3 grupos, precisamos do 2º e 3º
-                if (match.length > 3) {
-                    return { shopId: match[2], itemId: match[3] };
-                }
-                return { shopId: match[1], itemId: match[2] };
-            } else {
-                return { itemId: match[1], shopId: match[2] };
-            }
-        }
-    }
-
-    // Adiciona log para links não resolvidos
-    console.warn(`⚠️ Não foi possível extrair itemId/shopId do link: ${url}`);
-    return { itemId: null, shopId: null };
+    return { itemId: null, shopId: null };
 }
 
 // --- Persistência de Dados do Usuário ---
