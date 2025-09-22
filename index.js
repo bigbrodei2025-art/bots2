@@ -31,7 +31,7 @@ const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
 const SHOPEE_API_URL = "https://open-api.affiliate.shopee.com.br/graphql";
 const GOOGLE_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
-const PROMPT_IA = `Aja como um especialista em vendas no varejo. Você é criativo, persuasivo e empolgado. Escreva um parágrafo curto e conciso, de no máximo 4 linhas, com emojis, para vender o seguinte produto: {nome_produto}. Não repita o nome do produto no início.`;
+const PROMPT_IA = `hAja como um especialista em vendas no varejo. Você é criativo, persuasivo e empolgado. Escreva um parágrafo curto e conciso, de no máximo 4 linhas, com emojis, para vender o seguinte produto: {nome_produto}. Não repita o nome do produto no início, voce deve verificar se o produto e relamente o ue vai dizer porqque tipo o produto e prancha de cabelo e voce não deve se eganar com prancha de surfe`;
 
 async function gerarAssinaturaShopee(timestamp, payload) {
     const stringParaAssinatura = `${SHOPEE_APP_ID}${timestamp}${payload}${SHOPEE_SECRET}`;
