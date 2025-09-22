@@ -57,15 +57,12 @@ async function fazerRequisicaoShopee(query) {
     }
 }
 
-// CORREÇÃO: Função de normalização de preço aprimorada
 function normalizarPreco(valor) {
     try {
         const v = parseFloat(valor);
-        // Se o valor for muito grande, assuma que são centavos e divida por 100
         if (v >= 1000) {
             return v / 100;
         }
-        // Se o valor for menor, mantenha como está
         return v;
     } catch (e) {
         return 0.0;
@@ -131,7 +128,6 @@ async function gerarMensagemPromocional(nomeProduto) {
     }
 }
 
-// CORREÇÃO: Lida com links encurtados
 async function parseUrl(url) {
     if (url.includes("s.shopee.com.br") || url.includes("shope.ee")) {
         try {
@@ -140,7 +136,6 @@ async function parseUrl(url) {
             console.log("Link encurtado resolvido para:", url);
         } catch (error) {
             console.error("❌ Erro ao resolver link encurtado:", error.message);
-            // Se falhar, tenta extrair da URL original mesmo assim
         }
     }
 
@@ -152,7 +147,6 @@ async function parseUrl(url) {
     if (queryMatch) {
         return { itemId: queryMatch[1], shopId: queryMatch[2] };
     }
-    // Nova regra para o formato "i.ID_LOJA.ID_ITEM"
     const iMatch = url.match(/i\.(\d+)\.(\d+)/);
     if (iMatch) {
         return { itemId: iMatch[2], shopId: iMatch[1] };
@@ -161,44 +155,13 @@ async function parseUrl(url) {
     return { itemId: null, shopId: null };
 }
 
-// --- Persistência de Dados do Usuário ---
-const usuariosDB = {};
-const DB_FILE_PATH = path.join(__dirname, 'usuariosDB.json');
-
-function carregarDB() {
-    if (fs.existsSync(DB_FILE_PATH)) {
-        try {
-            const data = fs.readFileSync(DB_FILE_PATH, 'utf8');
-            Object.assign(usuariosDB, JSON.parse(data || '{}'));
-            console.log("✅ User DB loaded successfully.");
-        } catch (e) {
-            console.error("❌ Error loading user DB:", e);
-            Object.assign(usuariosDB, {});
-        }
-    } else {
-        console.log("ℹ️ User DB file not found, a new one will be created.");
-    }
-}
-
-function salvarDB() {
-    try {
-        fs.writeFileSync(DB_FILE_PATH, JSON.stringify(usuariosDB, null, 2), 'utf8');
-        console.log("✅ User DB saved successfully.");
-    } catch (e) {
-        console.error("❌ Error saving user DB:", e);
-    }
-}
-
-carregarDB();
-
+// O objeto 'estadoEnvio' continua, pois armazena o estado temporário da conversa
 const estadoEnvio = {};
 const estadoShopee = {};
 
 const PORT = process.env.PORT || 3000;
 
-// Variáveis para gerenciar o estado da conexão e do QR code
 let sock;
-let qrDinamic;
 let soket;
 let qrState = null;
 let reconnectAttempts = 0;
@@ -213,12 +176,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Rota para o seu index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Rotas de API para a interface HTML
 app.post('/connect-bot', async (req, res) => {
     console.log("Solicitação de conexão recebida da interface.");
     await connectToWhatsApp();
@@ -348,7 +309,6 @@ async function connectToWhatsApp() {
         
         if (qr) {
             reconnectAttempts = 0;
-            qrDinamic = qr;
             qrState = qr;
             if (soket) {
                 updateQR("qr");
