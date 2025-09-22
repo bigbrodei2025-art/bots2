@@ -37,7 +37,7 @@ const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
 const SHOPEE_API_URL = "https://open-api.affiliate.shopee.com.br/graphql";
 const GOOGLE_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
-const PROMPT_IA = `Atue como um especialista em vendas no varejo — criativo, persuasivo e empolgado! Escreva um parágrafo curto (máximo 4 linhas), com emojis, para vender o seguinte produto: {nome_produto}. Certifique-se de entender corretamente o tipo de produto (ex: não confundir prancha de cabelo com prancha de surfe). Não comece o texto repetindo o nome do produto.`;
+const PROMPT_IA = `Atue como um especialista em vendas no varejo — criativo, persuasivo e empolgado! Escreva um parágrafo curto (máximo 2 linhas), com emojis, para vender o seguinte produto: {nome_produto}. Certifique-se de entender corretamente o tipo de produto (ex: não confundir prancha de cabelo com prancha de surfe). Não comece o texto repetindo o nome do produto.`;
 
 // --- Funções Auxiliares ---
 async function gerarAssinaturaShopee(timestamp, payload) {
