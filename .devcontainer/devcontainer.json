@@ -1,17 +1,19 @@
 {
   "name": "Node.js Codespace",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:0-18", // Você pode ajustar a imagem do Node.js se estiver usando uma versão específica
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:0-18", // Essa imagem base pode ser genérica ou atualizada conforme o necessário
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {}
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24.8.0"
+    }
   },
-  "forwardPorts": [3000], // Lista das portas que você quer que sejam automaticamente encaminhadas
+  "forwardPorts": [3000],
   "portsAttributes": {
     "3000": {
       "label": "Aplicação Node.js",
-      "onAutoForward": "notify", // Notifica quando a porta é encaminhada
+      "onAutoForward": "notify",
       "protocol": "http",
-      "public": true // TORNA A PORTA PÚBLICA AUTOMATICAMENTE
+      "public": true
     }
   },
-  "postCreateCommand": "npm install" // Comando para rodar automaticamente após a criação/reconstrução do Codespace
+  "postCreateCommand": "npm install"
 }
