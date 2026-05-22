@@ -1,4 +1,2 @@
-node_modules/
-auth_info_baileys/
+.node_modules
 .env
-.DS_Store
