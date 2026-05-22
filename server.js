@@ -1,5 +1,5 @@
 // ==========================================================
-// GEMINI LIVE NATIVE AUDIO + TEXT TRANSCRIPTION BRIDGE
+// GEMINI LIVE NATIVE AUDIO + TRANSCRIPTION BRIDGE
 // Second Life -> Render -> Gemini Live -> Text back to SL
 // ==========================================================
 
@@ -9,17 +9,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// ==========================================================
-// EXPRESS
-// ==========================================================
-
 const app = express();
-
 app.use(express.json({ limit: "1mb" }));
-
-// ==========================================================
-// ENV
-// ==========================================================
 
 const PORT = process.env.PORT || 3000;
 
@@ -34,7 +25,7 @@ const SYSTEM_PROMPT =
   "You are Spike, a charming avatar in Second Life. Speak naturally like a real person. Be playful, warm and expressive. Never sound robotic. Keep answers short unless code is requested. If asked for LSL code, provide compact complete LSL code only. Never use markdown. Never use ternary operators because LSL does not support them.";
 
 // ==========================================================
-// GEMINI LIVE ASK
+// GEMINI LIVE REQUEST
 // ==========================================================
 
 function askGeminiLive(message, userName = "Second Life User") {
@@ -56,6 +47,7 @@ function askGeminiLive(message, userName = "Second Life User") {
     let finalText = "";
     let setupDone = false;
     let finished = false;
+    let turnCompleteSeen = false;
 
     const timeout = setTimeout(() => {
       if (!finished) {
@@ -65,13 +57,30 @@ function askGeminiLive(message, userName = "Second Life User") {
           ws.close();
         } catch (e) {}
 
-        reject(new Error("Gemini timeout"));
+        if (finalText.trim() !== "") {
+          resolve(finalText.trim());
+        } else {
+          reject(new Error("Gemini timeout without transcription"));
+        }
       }
-    }, 30000);
+    }, 35000);
 
-    // ======================================================
-    // OPEN
-    // ======================================================
+    function finishSafely() {
+      if (finished) return;
+
+      finished = true;
+      clearTimeout(timeout);
+
+      try {
+        ws.close();
+      } catch (e) {}
+
+      if (finalText.trim() !== "") {
+        resolve(finalText.trim());
+      } else {
+        reject(new Error("Gemini returned empty transcription"));
+      }
+    }
 
     ws.on("open", () => {
       console.log("Gemini Live Connected");
@@ -83,7 +92,8 @@ function askGeminiLive(message, userName = "Second Life User") {
           generationConfig: {
             responseModalities: ["AUDIO"],
             temperature: 0.9,
-            maxOutputTokens: 250,
+            maxOutputTokens: 350,
+
             speechConfig: {
               voiceConfig: {
                 prebuiltVoiceConfig: {
@@ -101,10 +111,6 @@ function askGeminiLive(message, userName = "Second Life User") {
       ws.send(JSON.stringify(setup));
     });
 
-    // ======================================================
-    // MESSAGE
-    // ======================================================
-
     ws.on("message", (data) => {
       let msg;
 
@@ -119,8 +125,6 @@ function askGeminiLive(message, userName = "Second Life User") {
 
       if (msg.setupComplete && !setupDone) {
         setupDone = true;
-
-        console.log("Setup complete.");
 
         const userMessage = {
           clientContent: {
@@ -150,42 +154,45 @@ function askGeminiLive(message, userName = "Second Life User") {
 
       if (msg.serverContent) {
         if (msg.serverContent.outputTranscription) {
-          const transcribed = msg.serverContent.outputTranscription.text;
-
-          if (transcribed) {
-            finalText += transcribed;
-          }
+          const t = msg.serverContent.outputTranscription.text;
+          if (t) finalText += t;
         }
 
         if (msg.serverContent.outputAudioTranscription) {
-          const transcribed2 =
-            msg.serverContent.outputAudioTranscription.text;
+          const t = msg.serverContent.outputAudioTranscription.text;
+          if (t) finalText += t;
+        }
 
-          if (transcribed2) {
-            finalText += transcribed2;
+        if (
+          msg.serverContent.modelTurn &&
+          msg.serverContent.modelTurn.parts
+        ) {
+          for (const part of msg.serverContent.modelTurn.parts) {
+            if (part.text) {
+              finalText += part.text;
+            }
+
+            if (part.inlineData && part.inlineData.mimeType) {
+              console.log("Audio chunk received:", part.inlineData.mimeType);
+            }
           }
         }
 
-        if (msg.serverContent.turnComplete) {
-          finished = true;
-          clearTimeout(timeout);
+        if (msg.serverContent.generationComplete) {
+          console.log("Generation complete.");
+        }
 
-          try {
-            ws.close();
-          } catch (e) {}
+        if (msg.serverContent.turnComplete && !turnCompleteSeen) {
+          turnCompleteSeen = true;
 
-          if (finalText.trim() !== "") {
-            resolve(finalText.trim());
-          } else {
-            reject(new Error("Gemini returned empty transcription"));
-          }
+          console.log("Turn complete. Waiting final transcription...");
+
+          setTimeout(() => {
+            finishSafely();
+          }, 1500);
         }
       }
     });
-
-    // ======================================================
-    // ERROR
-    // ======================================================
 
     ws.on("error", (err) => {
       console.log("WebSocket Error:", err.message);
@@ -196,10 +203,6 @@ function askGeminiLive(message, userName = "Second Life User") {
         reject(err);
       }
     });
-
-    // ======================================================
-    // CLOSE
-    // ======================================================
 
     ws.on("close", (code, reason) => {
       console.log("WebSocket Closed:", code, reason.toString());
@@ -249,7 +252,6 @@ app.get("/models", async (req, res) => {
     );
 
     const data = await response.json();
-
     res.json(data);
   } catch (err) {
     res.status(500).json({
@@ -262,10 +264,7 @@ app.get("/models", async (req, res) => {
 app.post("/ask", async (req, res) => {
   try {
     const message = String(req.body.message || "").trim();
-
-    const userName = String(
-      req.body.userName || "Second Life User"
-    ).trim();
+    const userName = String(req.body.userName || "Second Life User").trim();
 
     if (!message) {
       res.status(400).json({
@@ -294,7 +293,7 @@ app.post("/ask", async (req, res) => {
 });
 
 // ==========================================================
-// START SERVER
+// START
 // ==========================================================
 
 app.listen(PORT, () => {
