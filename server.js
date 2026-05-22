@@ -1,5 +1,5 @@
 // ==========================================================
-// GEMINI LIVE TEXT BRIDGE
+// GEMINI LIVE TEXT BRIDGE - RENDER
 // Second Life -> Render -> Gemini Live
 // ==========================================================
 
@@ -9,137 +9,65 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// ==========================================================
-// EXPRESS
-// ==========================================================
-
 const app = express();
-
 app.use(express.json({ limit: "1mb" }));
 
-// ==========================================================
-// ENV
-// ==========================================================
+const PORT = process.env.PORT || 3000;
 
-const PORT =
-  process.env.PORT || 3000;
-
-const GEMINI_API_KEY =
-  process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const GEMINI_MODEL =
-  process.env.GEMINI_MODEL ||
-  "models/gemini-2.0-flash-live-001";
+  process.env.GEMINI_MODEL || "models/gemini-2.0-flash-live-001";
 
 const SYSTEM_PROMPT =
   process.env.SYSTEM_PROMPT ||
+  "You are Spike, a charming avatar in Second Life. Speak naturally, warmly and shortly. Never sound robotic. If asked for LSL code, provide compact complete LSL code only. Never use markdown. Never use ternary operators because LSL does not support them.";
 
-  "You are Spike, a charming avatar in Second Life. " +
-  "Speak naturally like a real person. " +
-  "Be playful, warm and expressive. " +
-  "Never sound robotic. " +
-  "Keep answers short unless code is requested. " +
-  "If asked for LSL code, provide complete compact LSL code only. " +
-  "Never use markdown. " +
-  "Never use ternary operators because LSL does not support them.";
-
-// ==========================================================
-// GEMINI LIVE
-// ==========================================================
-
-function askGeminiLive(
-  message,
-  userName = "Second Life User"
-)
-{
-  return new Promise((resolve, reject) =>
-  {
-    if (!GEMINI_API_KEY)
-    {
-      reject(
-        new Error(
-          "Missing GEMINI_API_KEY"
-        )
-      );
-
+function askGeminiLive(message, userName = "Second Life User") {
+  return new Promise((resolve, reject) => {
+    if (!GEMINI_API_KEY) {
+      reject(new Error("Missing GEMINI_API_KEY"));
       return;
     }
 
-    // ------------------------------------------------------
-
     const url =
       "wss://generativelanguage.googleapis.com/ws/" +
-      "google.ai.generativelanguage.v1beta." +
+      "google.ai.generativelanguage.v1alpha." +
       "GenerativeService.BidiGenerateContent" +
       "?key=" +
       encodeURIComponent(GEMINI_API_KEY);
 
-    // ------------------------------------------------------
-
-    const ws =
-      new WebSocket(url);
+    const ws = new WebSocket(url);
 
     let finalText = "";
-
     let setupDone = false;
     let finished = false;
 
-    // ------------------------------------------------------
-    // TIMEOUT
-    // ------------------------------------------------------
+    const timeout = setTimeout(() => {
+      if (!finished) {
+        finished = true;
+        try {
+          ws.close();
+        } catch (e) {}
+        reject(new Error("Gemini timeout"));
+      }
+    }, 30000);
 
-    const timeout =
-      setTimeout(() =>
-      {
-        if (!finished)
-        {
-          finished = true;
+    ws.on("open", () => {
+      console.log("Gemini Live Connected");
 
-          try
-          {
-            ws.close();
-          }
-          catch(e){}
-
-          reject(
-            new Error(
-              "Gemini timeout"
-            )
-          );
-        }
-      }, 30000);
-
-    // ------------------------------------------------------
-    // OPEN
-    // ------------------------------------------------------
-
-    ws.on("open", () =>
-    {
-      console.log(
-        "Gemini Live Connected"
-      );
-
-      const setup =
-      {
-        setup:
-        {
+      const setup = {
+        setup: {
           model: GEMINI_MODEL,
 
-          generationConfig:
-          {
+          generationConfig: {
             responseModalities: "TEXT",
-
             temperature: 0.9,
-
             maxOutputTokens: 250
           },
 
-          systemInstruction:
-          {
-            role: "user",
-
-            parts:
-            [
+          systemInstruction: {
+            parts: [
               {
                 text: SYSTEM_PROMPT
               }
@@ -148,218 +76,105 @@ function askGeminiLive(
         }
       };
 
-      console.log(
-        "Sending setup..."
-      );
-
-      ws.send(
-        JSON.stringify(setup)
-      );
+      ws.send(JSON.stringify(setup));
     });
 
-    // ------------------------------------------------------
-    // MESSAGE
-    // ------------------------------------------------------
-
-    ws.on("message", (data) =>
-    {
+    ws.on("message", (data) => {
       let msg;
 
-      try
-      {
-        msg =
-          JSON.parse(
-            data.toString()
-          );
-      }
-      catch(err)
-      {
-        console.log(
-          "Invalid JSON:",
-          data.toString()
-        );
-
+      try {
+        msg = JSON.parse(data.toString());
+      } catch (err) {
+        console.log("Invalid JSON:", data.toString());
         return;
       }
 
-      console.log(
-        "Gemini Message:",
-        JSON.stringify(msg)
-      );
+      console.log("Gemini Message:", JSON.stringify(msg));
 
-      // ----------------------------------------------------
-      // SETUP COMPLETE
-      // ----------------------------------------------------
-
-      if (
-        msg.setupComplete
-        && !setupDone
-      )
-      {
+      if (msg.setupComplete && !setupDone) {
         setupDone = true;
 
-        console.log(
-          "Setup complete."
-        );
-
-        const userMessage =
-        {
-          clientContent:
-          {
-            turns:
-            [
+        const userMessage = {
+          clientContent: {
+            turns: [
               {
                 role: "user",
-
-                parts:
-                [
+                parts: [
                   {
                     text:
-                      "User name: "
-                      + userName +
-
-                      "\nUser message: "
-                      + message
+                      "User name: " +
+                      userName +
+                      "\nUser message: " +
+                      message
                   }
                 ]
               }
             ],
-
             turnComplete: true
           }
         };
 
-        console.log(
-          "Sending user message..."
-        );
-
-        ws.send(
-          JSON.stringify(
-            userMessage
-          )
-        );
-
+        ws.send(JSON.stringify(userMessage));
         return;
       }
 
-      // ----------------------------------------------------
-      // SERVER CONTENT
-      // ----------------------------------------------------
-
-      if (msg.serverContent)
-      {
+      if (msg.serverContent) {
         if (
           msg.serverContent.modelTurn &&
           msg.serverContent.modelTurn.parts
-        )
-        {
-          const parts =
-            msg.serverContent
-            .modelTurn
-            .parts;
+        ) {
+          const parts = msg.serverContent.modelTurn.parts;
 
-          for (const part of parts)
-          {
-            if (part.text)
-            {
-              finalText +=
-                part.text;
+          for (const part of parts) {
+            if (part.text) {
+              finalText += part.text;
             }
           }
         }
 
-        // ------------------------------------------------
-
-        if (
-          msg.serverContent.turnComplete
-        )
-        {
+        if (msg.serverContent.turnComplete) {
           finished = true;
-
           clearTimeout(timeout);
 
-          try
-          {
+          try {
             ws.close();
-          }
-          catch(e){}
+          } catch (e) {}
 
-          if (
-            finalText.trim() !== ""
-          )
-          {
-            resolve(
-              finalText.trim()
-            );
-          }
-          else
-          {
-            reject(
-              new Error(
-                "Gemini returned empty response"
-              )
-            );
+          if (finalText.trim() !== "") {
+            resolve(finalText.trim());
+          } else {
+            reject(new Error("Gemini returned empty response"));
           }
         }
       }
     });
 
-    // ------------------------------------------------------
-    // ERROR
-    // ------------------------------------------------------
+    ws.on("error", (err) => {
+      console.log("WebSocket Error:", err.message);
 
-    ws.on("error", (err) =>
-    {
-      console.log(
-        "WebSocket Error:",
-        err.message
-      );
-
-      if (!finished)
-      {
+      if (!finished) {
         finished = true;
-
         clearTimeout(timeout);
-
         reject(err);
       }
     });
 
-    // ------------------------------------------------------
-    // CLOSE
-    // ------------------------------------------------------
+    ws.on("close", (code, reason) => {
+      console.log("WebSocket Closed:", code, reason.toString());
 
-    ws.on("close", (code, reason) =>
-    {
-      console.log(
-        "WebSocket Closed:",
-        code,
-        reason.toString()
-      );
-
-      if (!finished)
-      {
+      if (!finished) {
         finished = true;
-
         clearTimeout(timeout);
 
-        if (
-          finalText.trim() !== ""
-        )
-        {
-          resolve(
-            finalText.trim()
-          );
-        }
-        else
-        {
+        if (finalText.trim() !== "") {
+          resolve(finalText.trim());
+        } else {
           reject(
             new Error(
-              "Gemini closed without response. " +
-              "Code: " +
-              code +
-              " Reason: " +
-              reason.toString()
+              "Gemini closed without response. Code: " +
+                code +
+                " Reason: " +
+                reason.toString()
             )
           );
         }
@@ -368,130 +183,54 @@ function askGeminiLive(
   });
 }
 
-// ==========================================================
-// ROUTES
-// ==========================================================
-
-app.get("/", (req, res) =>
-{
-  res.send(
-    "Gemini Live Bridge Online"
-  );
+app.get("/", (req, res) => {
+  res.send("Gemini Live Bridge Online");
 });
 
-// ----------------------------------------------------------
-
-app.get("/health", (req, res) =>
-{
-  res.json(
-  {
+app.get("/health", (req, res) => {
+  res.json({
     ok: true,
-
-    model:
-      GEMINI_MODEL,
-
-    hasKey:
-      Boolean(
-        GEMINI_API_KEY
-      )
+    model: GEMINI_MODEL,
+    hasKey: Boolean(GEMINI_API_KEY)
   });
 });
 
-// ----------------------------------------------------------
+app.post("/ask", async (req, res) => {
+  try {
+    const message = String(req.body.message || "").trim();
+    const userName = String(req.body.userName || "Second Life User").trim();
 
-app.post("/ask", async (req, res) =>
-{
-  try
-  {
-    const message =
-      String(
-        req.body.message || ""
-      ).trim();
-
-    const userName =
-      String(
-        req.body.userName ||
-        "Second Life User"
-      ).trim();
-
-    if (!message)
-    {
-      res.status(400).json(
-      {
+    if (!message) {
+      res.status(400).json({
         ok: false,
-
-        error:
-          "Missing message"
+        error: "Missing message"
       });
-
       return;
     }
 
-    console.log(
-      "ASK:",
-      userName,
-      message
-    );
+    console.log("ASK:", userName, message);
 
-    const reply =
-      await askGeminiLive(
-        message,
-        userName
-      );
+    const reply = await askGeminiLive(message, userName);
 
-    res.json(
-    {
+    res.json({
       ok: true,
-
       reply: reply
     });
-  }
-  catch(err)
-  {
-    console.error(
-      "ASK ERROR:",
-      err.message
-    );
+  } catch (err) {
+    console.error("ASK ERROR:", err.message);
 
-    res.status(500).json(
-    {
+    res.status(500).json({
       ok: false,
-
       error: err.message
     });
   }
 });
 
-// ==========================================================
-// START
-// ==========================================================
-
-app.listen(PORT, () =>
-{
-  console.log(
-    "=================================="
-  );
-
-  console.log(
-    "Gemini Live Bridge Started"
-  );
-
-  console.log(
-    "PORT:",
-    PORT
-  );
-
-  console.log(
-    "MODEL:",
-    GEMINI_MODEL
-  );
-
-  console.log(
-    "HAS API KEY:",
-    Boolean(GEMINI_API_KEY)
-  );
-
-  console.log(
-    "=================================="
-  );
+app.listen(PORT, () => {
+  console.log("==================================");
+  console.log("Gemini Live Bridge Started");
+  console.log("PORT:", PORT);
+  console.log("MODEL:", GEMINI_MODEL);
+  console.log("HAS API KEY:", Boolean(GEMINI_API_KEY));
+  console.log("==================================");
 });
