@@ -22,13 +22,13 @@ const GEMINI_MODEL =
 
 const SYSTEM_PROMPT =
   process.env.SYSTEM_PROMPT ||
-  "You are Spike, a charming avatar in Second Life. Speak naturally like a real person. Be playful, warm and expressive. Never sound robotic. Keep answers short unless code is requested. If asked for LSL code, provide compact complete LSL code only. Never use markdown. Never use ternary operators because LSL does not support them.";
+  "You are Spike, a charming avatar in Second Life. Reply only with the final answer that should appear in chat. Never explain your reasoning. Never mention that you are analyzing, thinking, crafting, or answering. Never use markdown titles. Speak naturally in the same language as the user. Be warm, playful, short and expressive. If asked for LSL code, provide complete compact LSL code only. Never use ternary operators because LSL does not support them. If asked today's date or time, use the provided timestamp.";
 
 // ==========================================================
 // GEMINI LIVE REQUEST
 // ==========================================================
 
-function askGeminiLive(message, userName = "Second Life User") {
+function askGeminiLive(message, userName = "Second Life User", userId = "") {
   return new Promise((resolve, reject) => {
     if (!GEMINI_API_KEY) {
       reject(new Error("Missing GEMINI_API_KEY"));
@@ -65,6 +65,18 @@ function askGeminiLive(message, userName = "Second Life User") {
       }
     }, 35000);
 
+    function cleanReply(text) {
+      let out = String(text || "").trim();
+
+      out = out.replace(/\*\*Answering the Question\*\*/gi, "");
+      out = out.replace(/\*\*.*?\*\*/g, "");
+      out = out.replace(/I've crafted[\s\S]*?\n\n/gi, "");
+      out = out.replace(/I have crafted[\s\S]*?\n\n/gi, "");
+      out = out.replace(/Given the context[\s\S]*?\n\n/gi, "");
+
+      return out.trim();
+    }
+
     function finishSafely() {
       if (finished) return;
 
@@ -75,8 +87,10 @@ function askGeminiLive(message, userName = "Second Life User") {
         ws.close();
       } catch (e) {}
 
-      if (finalText.trim() !== "") {
-        resolve(finalText.trim());
+      finalText = cleanReply(finalText);
+
+      if (finalText !== "") {
+        resolve(finalText);
       } else {
         reject(new Error("Gemini returned empty transcription"));
       }
@@ -91,7 +105,7 @@ function askGeminiLive(message, userName = "Second Life User") {
 
           generationConfig: {
             responseModalities: ["AUDIO"],
-            temperature: 0.9,
+            temperature: 0.85,
             maxOutputTokens: 350,
 
             speechConfig: {
@@ -107,7 +121,6 @@ function askGeminiLive(message, userName = "Second Life User") {
         }
       };
 
-      console.log("Sending setup...");
       ws.send(JSON.stringify(setup));
     });
 
@@ -121,8 +134,6 @@ function askGeminiLive(message, userName = "Second Life User") {
         return;
       }
 
-      console.log("Gemini Message:", JSON.stringify(msg));
-
       if (msg.setupComplete && !setupDone) {
         setupDone = true;
 
@@ -135,10 +146,15 @@ function askGeminiLive(message, userName = "Second Life User") {
                   {
                     text:
                       SYSTEM_PROMPT +
-                      "\n\nUser name: " +
+                      "\n\nCurrent UTC timestamp: " +
+                      new Date().toISOString() +
+                      "\nSecond Life user name: " +
                       userName +
+                      "\nSecond Life user UUID: " +
+                      userId +
                       "\nUser message: " +
-                      message
+                      message +
+                      "\n\nImportant: Reply only with the final chat message. Do not include analysis, notes, headings or explanations about your process."
                   }
                 ]
               }
@@ -147,7 +163,6 @@ function askGeminiLive(message, userName = "Second Life User") {
           }
         };
 
-        console.log("Sending user message...");
         ws.send(JSON.stringify(userMessage));
         return;
       }
@@ -171,21 +186,11 @@ function askGeminiLive(message, userName = "Second Life User") {
             if (part.text) {
               finalText += part.text;
             }
-
-            if (part.inlineData && part.inlineData.mimeType) {
-              console.log("Audio chunk received:", part.inlineData.mimeType);
-            }
           }
-        }
-
-        if (msg.serverContent.generationComplete) {
-          console.log("Generation complete.");
         }
 
         if (msg.serverContent.turnComplete && !turnCompleteSeen) {
           turnCompleteSeen = true;
-
-          console.log("Turn complete. Waiting final transcription...");
 
           setTimeout(() => {
             finishSafely();
@@ -211,8 +216,10 @@ function askGeminiLive(message, userName = "Second Life User") {
         finished = true;
         clearTimeout(timeout);
 
-        if (finalText.trim() !== "") {
-          resolve(finalText.trim());
+        finalText = cleanReply(finalText);
+
+        if (finalText !== "") {
+          resolve(finalText);
         } else {
           reject(
             new Error(
@@ -265,6 +272,7 @@ app.post("/ask", async (req, res) => {
   try {
     const message = String(req.body.message || "").trim();
     const userName = String(req.body.userName || "Second Life User").trim();
+    const userId = String(req.body.userId || "").trim();
 
     if (!message) {
       res.status(400).json({
@@ -276,7 +284,7 @@ app.post("/ask", async (req, res) => {
 
     console.log("ASK:", userName, message);
 
-    const reply = await askGeminiLive(message, userName);
+    const reply = await askGeminiLive(message, userName, userId);
 
     res.json({
       ok: true,
