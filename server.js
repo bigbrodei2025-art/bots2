@@ -1,3 +1,8 @@
+// ==========================================================
+// GEMINI LIVE TEXT BRIDGE
+// Second Life -> Render -> Gemini Live -> Second Life
+// ==========================================================
+
 import express from "express";
 import WebSocket from "ws";
 import dotenv from "dotenv";
@@ -5,33 +10,25 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+
 app.use(express.json({ limit: "1mb" }));
 
 const PORT = process.env.PORT || 3000;
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
 const GEMINI_MODEL =
-  process.env.GEMINI_MODEL || "gemini-2.5-flash-live-preview";
-
-const MAX_OUTPUT_TOKENS =
-  Number(process.env.MAX_OUTPUT_TOKENS || 350);
-
-const TEMPERATURE =
-  Number(process.env.TEMPERATURE || 0.9);
+  process.env.GEMINI_MODEL || "gemini-live-2.5-flash-preview";
 
 const SYSTEM_PROMPT =
   process.env.SYSTEM_PROMPT ||
-  "You are Spike, a friendly avatar in Second Life. Speak naturally and shortly.";
+  "You are Spike, a charming avatar in Second Life. Speak naturally, warmly and shortly. Never sound robotic. If asked for LSL code, give compact complete LSL code only. Never use markdown. Never use ternary operators because LSL does not support them.";
 
-function cleanText(text) {
-  if (!text) return "";
-  return String(text)
-    .replace(/```/g, "")
-    .replace(/\r/g, "")
-    .trim();
-}
+// ==========================================================
+// ASK GEMINI LIVE
+// ==========================================================
 
-function askGeminiLive(message, userName) {
+function askGeminiLive(message, userName = "Second Life User") {
   return new Promise((resolve, reject) => {
     if (!GEMINI_API_KEY) {
       reject(new Error("Missing GEMINI_API_KEY"));
@@ -45,29 +42,40 @@ function askGeminiLive(message, userName) {
     const ws = new WebSocket(url);
 
     let finalText = "";
-    let finished = false;
     let setupComplete = false;
+    let finished = false;
 
     const timeout = setTimeout(() => {
       if (!finished) {
         finished = true;
+
         try {
           ws.close();
-        } catch {}
+        } catch (e) {}
+
         reject(new Error("Gemini Live timeout"));
       }
     }, 30000);
 
+    // ------------------------------------------------------
+    // OPEN
+    // ------------------------------------------------------
+
     ws.on("open", () => {
-      const setupPayload = {
+      console.log("Gemini Live WebSocket opened.");
+
+      const setupMessage = {
         setup: {
           model: "models/" + GEMINI_MODEL,
+
           generationConfig: {
             responseModalities: ["TEXT"],
-            temperature: TEMPERATURE,
-            maxOutputTokens: MAX_OUTPUT_TOKENS
+            temperature: 0.9,
+            maxOutputTokens: 500
           },
+
           systemInstruction: {
+            role: "user",
             parts: [
               {
                 text: SYSTEM_PROMPT
@@ -77,22 +85,29 @@ function askGeminiLive(message, userName) {
         }
       };
 
-      ws.send(JSON.stringify(setupPayload));
+      ws.send(JSON.stringify(setupMessage));
     });
 
-    ws.on("message", (raw) => {
-      let data;
+    // ------------------------------------------------------
+    // MESSAGE
+    // ------------------------------------------------------
+
+    ws.on("message", (data) => {
+      let msg;
 
       try {
-        data = JSON.parse(raw.toString());
-      } catch {
+        msg = JSON.parse(data.toString());
+      } catch (err) {
+        console.log("Invalid JSON from Gemini:", data.toString());
         return;
       }
 
-      if (data.setupComplete && !setupComplete) {
+      console.log("Gemini message:", JSON.stringify(msg));
+
+      if (msg.setupComplete && !setupComplete) {
         setupComplete = true;
 
-        const userPayload = {
+        const userMessage = {
           clientContent: {
             turns: [
               {
@@ -112,35 +127,48 @@ function askGeminiLive(message, userName) {
           }
         };
 
-        ws.send(JSON.stringify(userPayload));
+        ws.send(JSON.stringify(userMessage));
         return;
       }
 
-      if (data.serverContent) {
-        const modelTurn = data.serverContent.modelTurn;
+      if (msg.serverContent) {
+        if (
+          msg.serverContent.modelTurn &&
+          msg.serverContent.modelTurn.parts
+        ) {
+          const parts = msg.serverContent.modelTurn.parts;
 
-        if (modelTurn && modelTurn.parts) {
-          for (const part of modelTurn.parts) {
+          for (const part of parts) {
             if (part.text) {
               finalText += part.text;
             }
           }
         }
 
-        if (data.serverContent.turnComplete) {
+        if (msg.serverContent.turnComplete) {
           finished = true;
           clearTimeout(timeout);
 
           try {
             ws.close();
-          } catch {}
+          } catch (e) {}
 
-          resolve(cleanText(finalText));
+          if (finalText.trim() !== "") {
+            resolve(finalText.trim());
+          } else {
+            reject(new Error("Gemini Live returned empty text"));
+          }
         }
       }
     });
 
+    // ------------------------------------------------------
+    // ERROR
+    // ------------------------------------------------------
+
     ws.on("error", (err) => {
+      console.log("Gemini Live WebSocket error:", err.message);
+
       if (!finished) {
         finished = true;
         clearTimeout(timeout);
@@ -148,26 +176,52 @@ function askGeminiLive(message, userName) {
       }
     });
 
-    ws.on("close", () => {
+    // ------------------------------------------------------
+    // CLOSE
+    // ------------------------------------------------------
+
+    ws.on("close", (code, reason) => {
+      console.log(
+        "Gemini Live WebSocket closed:",
+        code,
+        reason ? reason.toString() : ""
+      );
+
       if (!finished) {
         finished = true;
         clearTimeout(timeout);
 
         if (finalText.trim() !== "") {
-          resolve(cleanText(finalText));
+          resolve(finalText.trim());
         } else {
-          reject(new Error("Gemini Live closed without response"));
+          reject(
+            new Error(
+              "Gemini Live closed without response. Code: " +
+                code +
+                " Reason: " +
+                reason.toString()
+            )
+          );
         }
       }
     });
   });
 }
 
+// ==========================================================
+// ROUTES
+// ==========================================================
+
 app.get("/", (req, res) => {
+  res.send("Gemini Live Text Bridge Online");
+});
+
+app.get("/health", (req, res) => {
   res.json({
     ok: true,
-    name: "Spike Gemini Live Bridge",
-    status: "online"
+    service: "Gemini Live Text Bridge",
+    model: GEMINI_MODEL,
+    hasKey: Boolean(GEMINI_API_KEY)
   });
 });
 
@@ -190,14 +244,22 @@ app.post("/ask", async (req, res) => {
       ok: true,
       reply: reply
     });
-  } catch (error) {
+  } catch (err) {
+    console.error("ASK ERROR:", err.message);
+
     res.status(500).json({
       ok: false,
-      error: error.message
+      error: err.message
     });
   }
 });
 
+// ==========================================================
+// START SERVER
+// ==========================================================
+
 app.listen(PORT, () => {
-  console.log("Spike Gemini Live Bridge running on port " + PORT);
+  console.log("Gemini Live Text Bridge running on port " + PORT);
+  console.log("Model:", GEMINI_MODEL);
+  console.log("Has API Key:", Boolean(GEMINI_API_KEY));
 });
