@@ -1,6 +1,6 @@
 // ==========================================================
-// GEMINI LIVE NATIVE AUDIO + CLEAN TRANSCRIPTION BRIDGE
-// Second Life -> Render -> Gemini Live -> Clean Text
+// GEMINI LIVE UNIVERSAL LANGUAGE BRIDGE
+// Clean final answer only
 // ==========================================================
 
 import express from "express";
@@ -9,27 +9,11 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// ==========================================================
-// EXPRESS
-// ==========================================================
-
 const app = express();
+app.use(express.json({ limit: "1mb" }));
 
-app.use(
-  express.json({
-    limit: "1mb"
-  })
-);
-
-// ==========================================================
-// ENV
-// ==========================================================
-
-const PORT =
-  process.env.PORT || 3000;
-
-const GEMINI_API_KEY =
-  process.env.GEMINI_API_KEY;
+const PORT = process.env.PORT || 3000;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const GEMINI_MODEL =
   process.env.GEMINI_MODEL ||
@@ -37,682 +21,245 @@ const GEMINI_MODEL =
 
 const SYSTEM_PROMPT =
   process.env.SYSTEM_PROMPT ||
+  "You are Spike, a charming avatar in Second Life. Reply only with ONE final chat message. Never explain your reasoning. Never describe what you are doing. Never include analysis, drafts, titles, markdown, notes, or internal thoughts. Detect the user's language and reply in the same language. If the user asks in Portuguese, reply in Portuguese. If the user asks in English, reply in English. Be natural, warm, playful and short. If asked for LSL code, provide complete compact LSL code only. Never use ternary operators because LSL does not support them.";
 
-  "You are Spike, a charming avatar in Second Life. " +
-  "Reply ONLY with the final chat message. " +
-  "Never explain your reasoning. " +
-  "Never describe what you are doing. " +
-  "Never include analysis. " +
-  "Never include markdown. " +
-  "Never say things like 'I have', 'I've', 'I need', 'Now'. " +
-  "Speak naturally in the same language as the user. " +
-  "Be warm, playful and short. " +
-  "If asked for LSL code, provide complete compact LSL code only.";
+function cleanReply(text) {
+  let out = String(text || "").trim();
 
-// ==========================================================
-// CLEAN REPLY
-// ==========================================================
+  out = out.replace(/\*\*/g, "");
+  out = out.replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, ""));
 
-function cleanReply(text)
-{
-  let out =
-    String(text || "").trim();
-
-  // ========================================================
-  // REMOVE MARKDOWN
-  // ========================================================
-
-  out =
-    out.replace(/\*\*/g, "");
-
-  // ========================================================
-  // REMOVE COMMON AI THOUGHTS
-  // ========================================================
-
-  const badPatterns =
-  [
-    /I have successfully[\s\S]*/gi,
-    /I've translated[\s\S]*/gi,
-    /I'm focusing[\s\S]*/gi,
-    /Now, I need[\s\S]*/gi,
-    /Now I'm[\s\S]*/gi,
-    /Given the context[\s\S]*/gi,
-    /Answering the Question[\s\S]*/gi,
-    /I think the translation[\s\S]*/gi
+  const thoughtPatterns = [
+    /Determining[\s\S]*?(?=\n\s*(Hoje|Sexta|Segunda|Terça|Quarta|Quinta|Sábado|Domingo|Oi|Olá|Hello|Hi|Hola|Bonjour|Claro|Sim|Não|Yes|No|Seu|Sua|Você|You)\b)/gi,
+    /Refining[\s\S]*?(?=\n\s*(Hoje|Sexta|Segunda|Terça|Quarta|Quinta|Sábado|Domingo|Oi|Olá|Hello|Hi|Hola|Bonjour|Claro|Sim|Não|Yes|No|Seu|Sua|Você|You)\b)/gi,
+    /I have[\s\S]*?(?=\n\s*(Hoje|Sexta|Segunda|Terça|Quarta|Quinta|Sábado|Domingo|Oi|Olá|Hello|Hi|Hola|Bonjour|Claro|Sim|Não|Yes|No|Seu|Sua|Você|You)\b)/gi,
+    /I've[\s\S]*?(?=\n\s*(Hoje|Sexta|Segunda|Terça|Quarta|Quinta|Sábado|Domingo|Oi|Olá|Hello|Hi|Hola|Bonjour|Claro|Sim|Não|Yes|No|Seu|Sua|Você|You)\b)/gi,
+    /Now[\s\S]*?(?=\n\s*(Hoje|Sexta|Segunda|Terça|Quarta|Quinta|Sábado|Domingo|Oi|Olá|Hello|Hi|Hola|Bonjour|Claro|Sim|Não|Yes|No|Seu|Sua|Você|You)\b)/gi,
+    /Given[\s\S]*?(?=\n\s*(Hoje|Sexta|Segunda|Terça|Quarta|Quinta|Sábado|Domingo|Oi|Olá|Hello|Hi|Hola|Bonjour|Claro|Sim|Não|Yes|No|Seu|Sua|Você|You)\b)/gi,
+    /Answering[\s\S]*?(?=\n\s*(Hoje|Sexta|Segunda|Terça|Quarta|Quinta|Sábado|Domingo|Oi|Olá|Hello|Hi|Hola|Bonjour|Claro|Sim|Não|Yes|No|Seu|Sua|Você|You)\b)/gi
   ];
 
-  for (const p of badPatterns)
-  {
-    out =
-      out.replace(p, "");
+  for (const pattern of thoughtPatterns) {
+    out = out.replace(pattern, "");
   }
 
-  // ========================================================
-  // TRY TO KEEP ONLY FINAL MESSAGE
-  // ========================================================
+  const lines = out
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
 
-  const markers =
-  [
-    "Hoje é",
-    "Seu nome é",
-    "Oi",
-    "Olá",
-    "Claro",
-    "Sim",
-    "Não",
-    "Você",
-    "Eu",
-    "Boa",
-    "Que"
-  ];
-
-  for (const marker of markers)
-  {
-    const index =
-      out.lastIndexOf(marker);
-
-    if (index > 0)
-    {
-      out =
-        out.substring(index).trim();
-
-      break;
-    }
+  if (lines.length > 1) {
+    out = lines[lines.length - 1];
   }
 
-  // ========================================================
-
-  out =
-    out.replace(/^["'\s]+|["'\s]+$/g, "");
-
+  out = out.replace(/^["'\s]+|["'\s]+$/g, "");
   return out.trim();
 }
 
-// ==========================================================
-// GEMINI LIVE
-// ==========================================================
-
-function askGeminiLive(
-  message,
-  userName = "Second Life User",
-  userId = ""
-)
-{
-  return new Promise((resolve, reject) =>
-  {
-    if (!GEMINI_API_KEY)
-    {
-      reject(
-        new Error(
-          "Missing GEMINI_API_KEY"
-        )
-      );
-
+function askGeminiLive(message, userName = "Second Life User", userId = "") {
+  return new Promise((resolve, reject) => {
+    if (!GEMINI_API_KEY) {
+      reject(new Error("Missing GEMINI_API_KEY"));
       return;
     }
-
-    // ======================================================
-    // WEBSOCKET URL
-    // ======================================================
 
     const url =
       "wss://generativelanguage.googleapis.com/ws/" +
       "google.ai.generativelanguage.v1alpha." +
       "GenerativeService.BidiGenerateContent" +
       "?key=" +
-      encodeURIComponent(
-        GEMINI_API_KEY
-      );
+      encodeURIComponent(GEMINI_API_KEY);
 
-    // ======================================================
-
-    const ws =
-      new WebSocket(url);
+    const ws = new WebSocket(url);
 
     let finalText = "";
-
     let setupDone = false;
     let finished = false;
     let turnCompleteSeen = false;
 
-    // ======================================================
-    // TIMEOUT
-    // ======================================================
-
-    const timeout =
-      setTimeout(() =>
-      {
-        if (!finished)
-        {
-          finished = true;
-
-          try
-          {
-            ws.close();
-          }
-          catch(e){}
-
-          finalText =
-            cleanReply(finalText);
-
-          if (
-            finalText.trim() !== ""
-          )
-          {
-            resolve(finalText);
-          }
-          else
-          {
-            reject(
-              new Error(
-                "Gemini timeout without transcription"
-              )
-            );
-          }
-        }
-      }, 35000);
-
-    // ======================================================
-    // FINISH
-    // ======================================================
-
-    function finishSafely()
-    {
-      if (finished)
-      {
-        return;
+    const timeout = setTimeout(() => {
+      if (!finished) {
+        finishSafely();
       }
+    }, 35000);
+
+    function finishSafely() {
+      if (finished) return;
 
       finished = true;
-
       clearTimeout(timeout);
 
-      try
-      {
+      try {
         ws.close();
-      }
-      catch(e){}
+      } catch (e) {}
 
-      finalText =
-        cleanReply(finalText);
+      const cleaned = cleanReply(finalText);
 
-      if (
-        finalText.trim() !== ""
-      )
-      {
-        resolve(finalText);
-      }
-      else
-      {
-        reject(
-          new Error(
-            "Gemini returned empty transcription"
-          )
-        );
+      if (cleaned !== "") {
+        resolve(cleaned);
+      } else {
+        reject(new Error("Gemini returned empty transcription"));
       }
     }
 
-    // ======================================================
-    // OPEN
-    // ======================================================
-
-    ws.on("open", () =>
-    {
-      console.log(
-        "Gemini Live Connected"
-      );
-
-      const setup =
-      {
-        setup:
-        {
-          model:
-            GEMINI_MODEL,
-
-          generationConfig:
-          {
-            responseModalities:
-            [
-              "AUDIO"
-            ],
-
-            temperature: 0.85,
-
-            maxOutputTokens: 350,
-
-            speechConfig:
-            {
-              voiceConfig:
-              {
-                prebuiltVoiceConfig:
-                {
-                  voiceName:
-                    "Kore"
+    ws.on("open", () => {
+      const setup = {
+        setup: {
+          model: GEMINI_MODEL,
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            temperature: 0.65,
+            maxOutputTokens: 220,
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: "Kore"
                 }
               }
             }
           },
-
-          outputAudioTranscription:
-          {}
+          outputAudioTranscription: {}
         }
       };
 
-      console.log(
-        "Sending setup..."
-      );
-
-      ws.send(
-        JSON.stringify(setup)
-      );
+      ws.send(JSON.stringify(setup));
     });
 
-    // ======================================================
-    // MESSAGE
-    // ======================================================
-
-    ws.on("message", (data) =>
-    {
+    ws.on("message", (data) => {
       let msg;
 
-      try
-      {
-        msg =
-          JSON.parse(
-            data.toString()
-          );
-      }
-      catch(err)
-      {
-        console.log(
-          "Invalid JSON:",
-          data.toString()
-        );
-
+      try {
+        msg = JSON.parse(data.toString());
+      } catch (err) {
         return;
       }
 
-      // ====================================================
-      // SETUP COMPLETE
-      // ====================================================
-
-      if (
-        msg.setupComplete
-        && !setupDone
-      )
-      {
+      if (msg.setupComplete && !setupDone) {
         setupDone = true;
 
-        const userMessage =
-        {
-          clientContent:
-          {
-            turns:
-            [
+        const userMessage = {
+          clientContent: {
+            turns: [
               {
                 role: "user",
-
-                parts:
-                [
+                parts: [
                   {
                     text:
-
                       SYSTEM_PROMPT +
-
                       "\n\nCurrent UTC timestamp: " +
                       new Date().toISOString() +
-
                       "\nSecond Life user name: " +
                       userName +
-
                       "\nSecond Life user UUID: " +
                       userId +
-
                       "\nUser message: " +
                       message +
-
-                      "\n\nImportant: Reply ONLY with the final chat message."
+                      "\n\nReturn only one clean final chat message in the same language as the user."
                   }
                 ]
               }
             ],
-
             turnComplete: true
           }
         };
 
-        console.log(
-          "Sending user message..."
-        );
-
-        ws.send(
-          JSON.stringify(
-            userMessage
-          )
-        );
-
+        ws.send(JSON.stringify(userMessage));
         return;
       }
 
-      // ====================================================
-      // SERVER CONTENT
-      // ====================================================
-
-      if (msg.serverContent)
-      {
-        // ==================================================
-        // TRANSCRIPTIONS
-        // ==================================================
-
-        if (
-          msg.serverContent
-          .outputTranscription
-        )
-        {
-          const t =
-            msg.serverContent
-            .outputTranscription
-            .text;
-
-          if (t)
-          {
-            finalText +=
-              " " + t;
-          }
+      if (msg.serverContent) {
+        if (msg.serverContent.outputTranscription) {
+          const t = msg.serverContent.outputTranscription.text;
+          if (t) finalText += " " + t;
         }
 
-        if (
-          msg.serverContent
-          .outputAudioTranscription
-        )
-        {
-          const t =
-            msg.serverContent
-            .outputAudioTranscription
-            .text;
-
-          if (t)
-          {
-            finalText +=
-              " " + t;
-          }
+        if (msg.serverContent.outputAudioTranscription) {
+          const t = msg.serverContent.outputAudioTranscription.text;
+          if (t) finalText += " " + t;
         }
-
-        // ==================================================
-        // MODEL TURN PARTS
-        // ==================================================
 
         if (
           msg.serverContent.modelTurn &&
           msg.serverContent.modelTurn.parts
-        )
-        {
-          const parts =
-            msg.serverContent
-            .modelTurn
-            .parts;
+        ) {
+          const parts = msg.serverContent.modelTurn.parts;
 
-          for (const part of parts)
-          {
-            if (part.text)
-            {
-              finalText +=
-                " " + part.text;
+          for (const part of parts) {
+            if (part.text) {
+              finalText += " " + part.text;
             }
           }
         }
 
-        // ==================================================
-        // TURN COMPLETE
-        // ==================================================
-
-        if (
-          msg.serverContent.turnComplete &&
-          !turnCompleteSeen
-        )
-        {
+        if (msg.serverContent.turnComplete && !turnCompleteSeen) {
           turnCompleteSeen = true;
 
-          console.log(
-            "Turn complete. Waiting final transcription..."
-          );
-
-          setTimeout(() =>
-          {
+          setTimeout(() => {
             finishSafely();
           }, 1500);
         }
       }
     });
 
-    // ======================================================
-    // ERROR
-    // ======================================================
-
-    ws.on("error", (err) =>
-    {
-      console.log(
-        "WebSocket Error:",
-        err.message
-      );
-
-      if (!finished)
-      {
+    ws.on("error", (err) => {
+      if (!finished) {
         finished = true;
-
         clearTimeout(timeout);
-
         reject(err);
       }
     });
 
-    // ======================================================
-    // CLOSE
-    // ======================================================
-
-    ws.on("close", (code, reason) =>
-    {
-      console.log(
-        "WebSocket Closed:",
-        code,
-        reason.toString()
-      );
-
-      if (!finished)
-      {
-        finished = true;
-
-        clearTimeout(timeout);
-
-        finalText =
-          cleanReply(finalText);
-
-        if (
-          finalText.trim() !== ""
-        )
-        {
-          resolve(finalText);
-        }
-        else
-        {
-          reject(
-            new Error(
-              "Gemini closed without response. Code: " +
-              code +
-              " Reason: " +
-              reason.toString()
-            )
-          );
-        }
+    ws.on("close", () => {
+      if (!finished) {
+        finishSafely();
       }
     });
   });
 }
 
-// ==========================================================
-// ROUTES
-// ==========================================================
-
-app.get("/", (req, res) =>
-{
-  res.send(
-    "Gemini Live Bridge Online"
-  );
+app.get("/", (req, res) => {
+  res.send("Gemini Live Bridge Online");
 });
 
-// ==========================================================
-
-app.get("/health", (req, res) =>
-{
-  res.json(
-  {
+app.get("/health", (req, res) => {
+  res.json({
     ok: true,
-
-    model:
-      GEMINI_MODEL,
-
-    hasKey:
-      Boolean(
-        GEMINI_API_KEY
-      )
+    model: GEMINI_MODEL,
+    hasKey: Boolean(GEMINI_API_KEY)
   });
 });
 
-// ==========================================================
+app.post("/ask", async (req, res) => {
+  try {
+    const message = String(req.body.message || "").trim();
+    const userName = String(req.body.userName || "Second Life User").trim();
+    const userId = String(req.body.userId || "").trim();
 
-app.get("/models", async (req, res) =>
-{
-  try
-  {
-    const response =
-      await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models?key=" +
-        encodeURIComponent(
-          GEMINI_API_KEY
-        )
-      );
-
-    const data =
-      await response.json();
-
-    res.json(data);
-  }
-  catch(err)
-  {
-    res.status(500).json(
-    {
-      ok: false,
-
-      error:
-        err.message
-    });
-  }
-});
-
-// ==========================================================
-
-app.post("/ask", async (req, res) =>
-{
-  try
-  {
-    const message =
-      String(
-        req.body.message || ""
-      ).trim();
-
-    const userName =
-      String(
-        req.body.userName ||
-        "Second Life User"
-      ).trim();
-
-    const userId =
-      String(
-        req.body.userId || ""
-      ).trim();
-
-    if (!message)
-    {
-      res.status(400).json(
-      {
+    if (!message) {
+      res.status(400).json({
         ok: false,
-
-        error:
-          "Missing message"
+        error: "Missing message"
       });
-
       return;
     }
 
-    console.log(
-      "ASK:",
-      userName,
-      message
-    );
+    const reply = await askGeminiLive(message, userName, userId);
 
-    const reply =
-      await askGeminiLive(
-        message,
-        userName,
-        userId
-      );
-
-    res.json(
-    {
+    res.json({
       ok: true,
-
-      reply: reply
+      reply
     });
-  }
-  catch(err)
-  {
-    console.error(
-      "ASK ERROR:",
-      err.message
-    );
-
-    res.status(500).json(
-    {
+  } catch (err) {
+    res.status(500).json({
       ok: false,
-
-      error:
-        err.message
+      error: err.message
     });
   }
 });
 
-// ==========================================================
-// START
-// ==========================================================
-
-app.listen(PORT, () =>
-{
-  console.log(
-    "=================================="
-  );
-
-  console.log(
-    "Gemini Live Native Audio Bridge Started"
-  );
-
-  console.log(
-    "PORT:",
-    PORT
-  );
-
-  console.log(
-    "MODEL:",
-    GEMINI_MODEL
-  );
-
-  console.log(
-    "HAS API KEY:",
-    Boolean(
-      GEMINI_API_KEY
-    )
-  );
-
-  console.log(
-    "=================================="
-  );
+app.listen(PORT, () => {
+  console.log("Gemini Live Bridge Started");
+  console.log("PORT:", PORT);
+  console.log("MODEL:", GEMINI_MODEL);
+  console.log("HAS API KEY:", Boolean(GEMINI_API_KEY));
 });
