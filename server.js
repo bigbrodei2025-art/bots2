@@ -1,6 +1,6 @@
 // ==========================================================
-// GEMINI LIVE NATIVE AUDIO BRIDGE - TEXT MODE TEST
-// Second Life -> Render -> Gemini Live
+// GEMINI LIVE NATIVE AUDIO + TEXT TRANSCRIPTION BRIDGE
+// Second Life -> Render -> Gemini Live -> Text back to SL
 // ==========================================================
 
 import express from "express";
@@ -15,11 +15,7 @@ dotenv.config();
 
 const app = express();
 
-app.use(
-  express.json({
-    limit: "1mb"
-  })
-);
+app.use(express.json({ limit: "1mb" }));
 
 // ==========================================================
 // ENV
@@ -38,7 +34,7 @@ const SYSTEM_PROMPT =
   "You are Spike, a charming avatar in Second Life. Speak naturally like a real person. Be playful, warm and expressive. Never sound robotic. Keep answers short unless code is requested. If asked for LSL code, provide compact complete LSL code only. Never use markdown. Never use ternary operators because LSL does not support them.";
 
 // ==========================================================
-// GEMINI LIVE
+// GEMINI LIVE ASK
 // ==========================================================
 
 function askGeminiLive(message, userName = "Second Life User") {
@@ -85,9 +81,19 @@ function askGeminiLive(message, userName = "Second Life User") {
           model: GEMINI_MODEL,
 
           generationConfig: {
+            responseModalities: ["AUDIO"],
             temperature: 0.9,
-            maxOutputTokens: 250
-          }
+            maxOutputTokens: 250,
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: "Kore"
+                }
+              }
+            }
+          },
+
+          outputAudioTranscription: {}
         }
       };
 
@@ -143,16 +149,20 @@ function askGeminiLive(message, userName = "Second Life User") {
       }
 
       if (msg.serverContent) {
-        if (
-          msg.serverContent.modelTurn &&
-          msg.serverContent.modelTurn.parts
-        ) {
-          const parts = msg.serverContent.modelTurn.parts;
+        if (msg.serverContent.outputTranscription) {
+          const transcribed = msg.serverContent.outputTranscription.text;
 
-          for (const part of parts) {
-            if (part.text) {
-              finalText += part.text;
-            }
+          if (transcribed) {
+            finalText += transcribed;
+          }
+        }
+
+        if (msg.serverContent.outputAudioTranscription) {
+          const transcribed2 =
+            msg.serverContent.outputAudioTranscription.text;
+
+          if (transcribed2) {
+            finalText += transcribed2;
           }
         }
 
@@ -167,7 +177,7 @@ function askGeminiLive(message, userName = "Second Life User") {
           if (finalText.trim() !== "") {
             resolve(finalText.trim());
           } else {
-            reject(new Error("Gemini returned empty response"));
+            reject(new Error("Gemini returned empty transcription"));
           }
         }
       }
@@ -220,7 +230,7 @@ function askGeminiLive(message, userName = "Second Life User") {
 // ==========================================================
 
 app.get("/", (req, res) => {
-  res.send("Gemini Live Native Audio Bridge Online");
+  res.send("Gemini Live Native Audio Transcription Bridge Online");
 });
 
 app.get("/health", (req, res) => {
@@ -284,12 +294,12 @@ app.post("/ask", async (req, res) => {
 });
 
 // ==========================================================
-// START
+// START SERVER
 // ==========================================================
 
 app.listen(PORT, () => {
   console.log("==================================");
-  console.log("Gemini Live Bridge Started");
+  console.log("Gemini Live Native Audio Bridge Started");
   console.log("PORT:", PORT);
   console.log("MODEL:", GEMINI_MODEL);
   console.log("HAS API KEY:", Boolean(GEMINI_API_KEY));
