@@ -1,5 +1,5 @@
 {
-  "name": "spike-gemini-live-bridge",
+  "name": "secondlife-gemini-live-bridge",
   "version": "1.0.0",
   "type": "module",
   "main": "server.js",
